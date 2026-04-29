@@ -6,8 +6,6 @@ on:
     types:
       - published
 
-permissions: write-all
-
 jobs:
   build:
     name: Build
@@ -45,7 +43,7 @@ jobs:
           - x86_64-unknown-linux-musl
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 1
           submodules: true
@@ -54,14 +52,14 @@ jobs:
           sudo rm -rf /opt/*
           ./scripts/make ${{ matrix.target }}
       - name: Upload package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.target }}.tar.xz
           path: ${{ matrix.target }}.tar.xz
           if-no-files-found: error
           retention-days: 1
       - name: Upload checksum
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.target }}.tar.xz.sha256
           path: ${{ matrix.target }}.tar.xz.sha256
@@ -71,16 +69,18 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
     needs:
       - build
     if: github.event_name == 'release'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 1
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: release
           pattern: "*.tar.*"
