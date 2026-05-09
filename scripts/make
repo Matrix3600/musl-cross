@@ -37,7 +37,7 @@ sudo apt-get install -y --no-install-recommends \
 # patch
 pushd builder
 git reset --hard HEAD
-git clean -fd
+git clean -fdx
 for i in ../targets/${TARGET}/*; do
     if [[ $i == *.patch ]]; then
         patch -Np1 -i $i
