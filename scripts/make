@@ -63,14 +63,7 @@ cp targets/${TARGET}/config build/.config
 pushd build
 /opt/ct-ng/bin/ct-ng olddefconfig
 
-echo -e "\n*** CT Original config ***\n"
-cat .config
-echo -e "\n******\n"
-
-# GCC update
-sed -Ei 's/^(CT_GCC_VERSION=)"[^"]*"/\1"16.1.0"/' .config
-
-echo -e "\n*** CT Modified config ***\n"
+echo -e "\n*** CT config ***\n"
 cat .config
 echo -e "\n******\n"
 
