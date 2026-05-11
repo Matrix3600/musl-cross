@@ -61,6 +61,11 @@ rm -rf build
 mkdir -p build
 cp targets/${TARGET}/config build/.config
 pushd build
+
+cat << 'EOF' >> .config
+CT_CONNECT_TIMEOUT=30
+EOF
+
 /opt/ct-ng/bin/ct-ng olddefconfig
 
 echo -e "\n*** CT config ***\n"
