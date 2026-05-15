@@ -73,6 +73,7 @@ cp ../targets/${TARGET}/config .config
 cat << 'EOF' >> .config
 CT_CONFIG_VERSION="4"
 CT_EXPERIMENTAL=y
+CT_LOCAL_TARBALLS_DIR="../source-tarballs"
 CT_PREFIX_DIR="musl-cross"
 CT_CONNECT_TIMEOUT=120
 CT_DOWNLOAD_WGET_OPTIONS="--tries=20 -nc --progress=dot:binary"
