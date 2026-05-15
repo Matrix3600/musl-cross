@@ -4,6 +4,16 @@ set -e
 
 TARGET=$1
 
+if [ -z "${TARGET}" ]; then
+	echo "Target is missing."
+	exit 1
+fi
+
+if [ ! -f "targets/${TARGET}/config" ]; then
+	echo "Target not supported (${TARGET})."
+	exit 1
+fi
+
 # packages
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
@@ -47,7 +57,6 @@ popd
 
 # crosstool-ng
 sudo mkdir -p /opt
-sudo chmod 0777 /opt
 sudo rm -rf /opt/ct-ng
 pushd builder
 ./bootstrap
@@ -57,26 +66,31 @@ sudo make install
 popd
 
 # build
-rm -rf build
-mkdir -p build
-cp targets/${TARGET}/config build/.config
+sudo rm -rf build
+mkdir build
 pushd build
-
+cp ../targets/${TARGET}/config .config
 cat << 'EOF' >> .config
-CT_CONNECT_TIMEOUT=30
+CT_CONFIG_VERSION="4"
+CT_EXPERIMENTAL=y
+CT_PREFIX_DIR="musl-cross"
+CT_CONNECT_TIMEOUT=120
+CT_DOWNLOAD_WGET_OPTIONS="--tries=20 -nc --progress=dot:binary"
+# CT_LOG_PROGRESS_BAR is not set
+# CT_SHOW_CT_VERSION is not set
 EOF
-
 /opt/ct-ng/bin/ct-ng olddefconfig
-
 echo -e "\n*** CT config ***\n"
 cat .config
 echo -e "\n******\n"
 
 /opt/ct-ng/bin/ct-ng build
-popd
 
 # tarball
-sudo mv /opt/x-tools/${TARGET} .
+sudo rm -rf ${TARGET}
+mv musl-cross ${TARGET}
 sudo chown -R root:root ${TARGET}
-sudo tar -cJvf ${TARGET}.tar.xz ${TARGET}
-sudo sha256sum ${TARGET}.tar.xz | awk '{ print $1 }' > ${TARGET}.tar.xz.sha256
+sudo tar -cJvf ../${TARGET}.tar.xz ${TARGET}
+sudo sha256sum ../${TARGET}.tar.xz | awk '{ print $1 }' > ../${TARGET}.tar.xz.sha256
+popd
+sudo rm -rf build
