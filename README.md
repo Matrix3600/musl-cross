@@ -3,6 +3,9 @@
 This is a simple and lightweight project for making a cross-compilation
 toolchain with the GCC compiler and the musl C library.
 
+The released toolchains (compilers) run on Linux x86_64.
+
+
 ## Supported targets
 
 | Target                         | Kernel  | Binutils | GCC    | Musl   | Mold |
@@ -62,6 +65,7 @@ Otherwise you can also publish a release directly.
 
 Or build manually:
 ```sh
+./scripts/pre-download
 ./scripts/make ${target}
 ```
 
