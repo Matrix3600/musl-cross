@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 env:
-  SRC_DIR: '~/src'
+  SRC_DIR: source-tarballs
 
 jobs:
   pre-download:
@@ -24,6 +24,7 @@ jobs:
       - name: Download tarballs
         run: |
           ./scripts/pre-download "$SRC_DIR"
+          ls -l "$SRC_DIR"
       - name: Upload tarballs
         uses: actions/upload-artifact@v7
         with:
