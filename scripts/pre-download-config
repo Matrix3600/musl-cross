@@ -1,0 +1,10 @@
+#
+# List of pre-downloaded packages.
+#
+# http(s)://<path>/<package>-<version>.tar.*
+#
+# If <version> if empty or non-numeric, the latest version of the package
+# supported by crosstool-NG is used.
+#
+https://musl.libc.org/releases/musl-x.tar.gz
+https://ftp.gnu.org/gnu/gmp/gmp-x.tar.xz

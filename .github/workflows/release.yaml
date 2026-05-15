@@ -8,10 +8,33 @@ on:
 permissions:
   contents: read
 
+env:
+  SRC_DIR: '~/src'
+
 jobs:
+  pre-download:
+    name: Pre-download
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: true
+      - name: Download tarballs
+        run: |
+          ./scripts/pre-download "$SRC_DIR"
+      - name: Upload tarballs
+        uses: actions/upload-artifact@v7
+        with:
+          name: source-tarballs
+          path: ${{ env.SRC_DIR }}
+          retention-days: 1
+
   build:
     name: Build
     runs-on: ubuntu-24.04
+    needs: [pre-download]
     strategy:
       fail-fast: true
       matrix:
@@ -49,8 +72,15 @@ jobs:
         with:
           fetch-depth: 1
           submodules: true
+      - name: Download tarballs
+        uses: actions/download-artifact@v8
+        with:
+          name: source-tarballs
+          path: ${{ env.SRC_DIR }}
+          merge-multiple: true
       - name: Build
         run: |
+          ls -l "$SRC_DIR"
           sudo rm -rf /opt/*
           ./scripts/make ${{ matrix.target }}
       - name: Upload package
