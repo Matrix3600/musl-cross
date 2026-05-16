@@ -3,13 +3,13 @@ name: Release
 on:
   workflow_dispatch:
   push:
-    tags: ['*']
+    tags: ['*', '!arm64-*']
 
 permissions:
   contents: read
 
 env:
-  SRC_DIR: source-tarballs
+  CTNG_SOURCE_DIR: source-tarballs
 
 jobs:
   pre-download:
@@ -23,13 +23,13 @@ jobs:
           submodules: true
       - name: Download tarballs
         run: |
-          ./scripts/pre-download "$SRC_DIR"
-          ls -l "$SRC_DIR"
+          ./scripts/pre-download
+          ls -l "$CTNG_SOURCE_DIR"
       - name: Upload tarballs
         uses: actions/upload-artifact@v7
         with:
           name: source-tarballs
-          path: ${{ env.SRC_DIR }}
+          path: ${{ env.CTNG_SOURCE_DIR }}
           retention-days: 1
 
   build:
@@ -77,25 +77,18 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: source-tarballs
-          path: ${{ env.SRC_DIR }}
+          path: ${{ env.CTNG_SOURCE_DIR }}
           merge-multiple: true
       - name: Build
         run: |
-          ls -l "$SRC_DIR"
+          ls -l "$CTNG_SOURCE_DIR"
           sudo rm -rf /opt/*
-          ./scripts/make ${{ matrix.target }}
+          ./scripts/make "${{ matrix.target }}"
       - name: Upload package
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.target }}.tar.xz
-          path: ${{ matrix.target }}.tar.xz
-          if-no-files-found: error
-          retention-days: 1
-      - name: Upload checksum
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ matrix.target }}.tar.xz.sha256
-          path: ${{ matrix.target }}.tar.xz.sha256
+          name: ${{ matrix.target }}
+          path: "${{ matrix.target }}.tar.xz*"
           if-no-files-found: error
           retention-days: 1
 
@@ -111,11 +104,11 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 1
-      - name: Download artifacts
+      - name: Download packages
         uses: actions/download-artifact@v8
         with:
           path: release
-          pattern: "*.tar.*"
+          pattern: "*-*-*"
           merge-multiple: true
       - name: Create release
         env:
@@ -128,6 +121,6 @@ jobs:
               --title="$tag" \
               --generate-notes --draft
           fi
-          for i in release/*.tar.xz; do
-            gh release upload "$tag" $i $i.sha256
+          for name in release/*.tar.xz; do
+            gh release upload "$tag" "$name" "$name.sha256"
           done
