@@ -3,7 +3,7 @@
 This is a simple and lightweight project for making a cross-compilation
 toolchain with the GCC compiler and the musl C library.
 
-The released toolchains (compilers) run on:
+These ready-to-use toolchains run on:
 
 - Linux x86_64
 - Linux ARM64
@@ -81,6 +81,6 @@ MIT
 
 We would like to express our gratitude to the following individuals and projects:
 
+- [cross-tools](https://github.com/cross-tools)
 - [crosstool-ng](https://github.com/crosstool-ng/crosstool-ng)
 - [musl-libc](https://musl.libc.org)
-- [cross-tools](https://github.com/cross-tools)
