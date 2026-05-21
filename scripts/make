@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 
-set -e
+set -e -o pipefail
 
 TARGET=$1
 
-if [ -z "${TARGET}" ]; then
-	echo "Target is missing."
+if [ -z "$TARGET" ]; then
+	echo "[ERROR] Target is missing."
 	exit 1
 fi
 
 if [ ! -f "targets/${TARGET}/config" ]; then
-	echo "Target not supported (${TARGET})."
+	echo "[ERROR] Target not supported (${TARGET})."
 	exit 1
 fi
 
@@ -55,7 +55,7 @@ for i in ../targets/${TARGET}/*; do
 done
 popd
 
-# crosstool-ng
+# crosstool-NG
 sudo mkdir -p /opt
 sudo rm -rf /opt/ct-ng
 pushd builder
@@ -69,7 +69,7 @@ popd
 sudo rm -rf build
 mkdir build
 pushd build
-cp ../targets/${TARGET}/config .config
+cp "../targets/${TARGET}/config" .config
 cat << 'EOF' >> .config
 CT_CONFIG_VERSION="4"
 CT_EXPERIMENTAL=y
@@ -99,7 +99,10 @@ sudo rm -rf ${TARGET}
 mv musl-cross ${TARGET}
 sudo chown -R root:root ${TARGET}
 name=$TARGET
+echo -e "\nCreating \"${name}.tar.xz\" ...\n"
 tar -cJvf ../${name}.tar.xz ${TARGET}
 sha256sum ../${name}.tar.xz | awk '{ print $1 }' > ../${name}.tar.xz.sha256
 popd
 sudo rm -rf build
+
+echo -e "\nDone.\n"
