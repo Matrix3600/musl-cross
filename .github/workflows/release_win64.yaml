@@ -1,0 +1,122 @@
+name: Release Win64
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['win64-*']
+
+permissions:
+  contents: read
+
+env:
+  TOOLCHAIN_HOST: x86_64-w64-mingw32
+  CTNG_SOURCE_DIR: source-tarballs
+
+jobs:
+  pre-download:
+    name: Pre-download
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: true
+      - name: Download tarballs
+        run: |
+          ./scripts/pre-download
+          ls -l "$CTNG_SOURCE_DIR"
+      - name: Upload tarballs
+        uses: actions/upload-artifact@v7
+        with:
+          name: source-tarballs
+          path: ${{ env.CTNG_SOURCE_DIR }}
+          retention-days: 1
+
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
+    needs: [pre-download]
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - aarch64-unknown-linux-musl
+          - arm-unknown-linux-musleabi
+          - arm-unknown-linux-musleabihf
+          - armv7-unknown-linux-musleabi
+          - armv7-unknown-linux-musleabihf
+          - i586-unknown-linux-musl
+          - i686-unknown-linux-musl
+          - loongarch64-unknown-linux-musl
+          - m68k-unknown-linux-musl
+          - microblaze-xilinx-linux-musl
+          - microblazeel-xilinx-linux-musl
+          - mips-unknown-linux-musl
+          - mips-unknown-linux-muslsf
+          - mipsel-unknown-linux-musl
+          - mipsel-unknown-linux-muslsf
+          - mips64-unknown-linux-musl
+          - mips64el-unknown-linux-musl
+          - or1k-unknown-linux-musl
+          - riscv32-unknown-linux-musl
+          - riscv64-unknown-linux-musl
+          - sh4-multilib-linux-musl
+          - x86_64-unknown-linux-musl
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: true
+      - name: Download tarballs
+        uses: actions/download-artifact@v8
+        with:
+          name: source-tarballs
+          path: ${{ env.CTNG_SOURCE_DIR }}
+          merge-multiple: true
+      - name: Build
+        run: |
+          ls -l "$CTNG_SOURCE_DIR"
+          sudo rm -rf /opt/*
+          ./scripts/make_canadian "${{ env.TOOLCHAIN_HOST }}" "${{ matrix.target }}"
+      - name: Upload package
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.TOOLCHAIN_HOST }}_${{ matrix.target }}
+          path: "*_${{ matrix.target }}.zip*"
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    name: Release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    needs: [build]
+    if: github.event_name == 'push'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+      - name: Download packages
+        uses: actions/download-artifact@v8
+        with:
+          path: release
+          pattern: "*-*-*"
+          merge-multiple: true
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag=${GITHUB_REF#refs/tags/}
+          if [ "$(gh release view "$tag" 2>&1)" == "release not found" ]; then
+            gh release create "$tag" \
+              --repo="$GITHUB_REPOSITORY" \
+              --title="$tag" \
+              --generate-notes --draft
+          fi
+          for name in release/*.zip; do
+            gh release upload "$tag" "$name" "$name.sha256"
+          done
