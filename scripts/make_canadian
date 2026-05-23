@@ -1,0 +1,273 @@
+#!/usr/bin/env bash
+
+set -o pipefail
+
+GH_URL_GNU="https://github.com/cross-tools"
+GH_URL_MUSL="https://github.com/Matrix3600"
+GH_URL_MINGW="https://github.com/cross-tools"
+GH_VER_GNU=20260515
+GH_VER_MUSL=20260515
+GH_VER_MINGW=20260515
+
+
+#
+# Rename conflicting files on case-insensitive file systems.
+#
+
+#
+# Rename conflicting filenames in include directives.
+#
+function rename_includes()
+{
+	if [ -n "$2" ]; then
+		local pattern=""
+		for name in $2; do
+			pattern="${pattern}${pattern:+\\|}${name}"
+		done
+		find "$1" -type f -print0 | while IFS= read -r -d '' file; do
+			sed -i -b -e "s@\(#include\s*<linux/\(${pattern}\)\)\(\.h>\)@\1_1\3@g" "$file"
+			if [ $? != 0 ]; then return 1; fi
+		done
+	fi
+}
+
+#
+# Rename conflicting files.
+#
+function rename_files_windows()
+{
+	local rename_file_list="\
+		netfilter/xt_connmark \
+		netfilter/xt_dscp \
+		netfilter/xt_mark \
+		netfilter/xt_rateest \
+		netfilter/xt_tcpmss \
+		netfilter_ipv4/ipt_ecn \
+		netfilter_ipv4/ipt_ttl \
+		netfilter_ipv6/ip6t_hl"
+
+	local renamed_files=""
+	local root_dir="${1}/sysroot/usr/include/linux"
+	find "$root_dir" -exec chmod +w {} \;
+	for name in $rename_file_list ;	do
+		local ext=".h"
+		if [ -f "${root_dir}/${name}${ext}" ]; then
+			echo "Renaming \"${root_dir}/${name}${ext}\" to \"${name}_1${ext}\""
+			mv "${root_dir}/${name}${ext}" "${root_dir}/${name}_1${ext}"
+			if [ $? != 0 ]; then return 1; fi
+			renamed_files="${renamed_files} ${name}"
+		fi
+	done
+	rename_includes "$root_dir" "${renamed_files}"
+	if [ $? != 0 ]; then return 1; fi
+	find "$root_dir" -exec chmod a-w {} \;
+}
+
+
+HOST=$1
+TARGET=$2
+
+if [ -z "$HOST" ]; then
+	echo "[ERROR] Host is missing."
+	exit 1
+fi
+
+if [ -z "$TARGET" ]; then
+	echo "[ERROR] Target is missing."
+	exit 1
+fi
+
+if [ ! -f "targets/${TARGET}/config" ]; then
+	echo "[ERROR] Target not supported (${TARGET})."
+	exit 1
+fi
+
+if [ "$HOST" == "$TARGET" ]; then
+	echo "[ERROR] Target and host are identical."
+	exit 1
+fi
+
+source_dir=$CTNG_SOURCE_DIR
+if [ -z "$source_dir" ]; then
+	source_dir="source-tarballs"
+fi
+src_dir=$(mkdir -p -- "$source_dir" &>/dev/null && \
+	cd -- "$source_dir" &>/dev/null && pwd)
+if [ -z "$src_dir" ]; then
+	echo "[ERROR] Source directory invalid (${source_dir})."
+	exit 1
+fi
+source_dir=$src_dir
+
+# Get host toolchain
+if [ ! -f "${HOST}.tar.xz" ]; then
+	url=""
+	case ${HOST} in
+		*-gnu)
+			url="${GH_URL_GNU}/gnu-cross/releases/download/${GH_VER_GNU}/${HOST}.tar.xz"
+			;;
+		*-musl)
+			url="${GH_URL_MUSL}/musl-cross/releases/download/${GH_VER_MUSL}/${HOST}.tar.xz"
+			;;
+		*-mingw32)
+			url="${GH_URL_MINGW}/mingw-cross/releases/download/${GH_VER_MINGW}/${HOST}.tar.xz"
+			;;
+	esac
+	wget -nv -nc -T 120 --tries=20 --progress=dot:binary "$url"
+	if [ $? != 0 ]; then
+		echo "[ERROR] Host not supported (${HOST})."
+		exit 1
+	fi
+fi
+
+set -e
+
+# Packages
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends \
+  automake \
+  bison \
+  bzip2 \
+  ca-certificates \
+  cmake \
+  curl \
+  file \
+  flex \
+  g++ \
+  gawk \
+  gdb \
+  git \
+  gperf \
+  help2man \
+  libncurses-dev \
+  libssl-dev \
+  libtool-bin \
+  make \
+  patch \
+  pkg-config \
+  python3 \
+  rsync \
+  texinfo \
+  unzip \
+  wget \
+  xz-utils \
+  zip
+
+# Patch
+pushd builder
+git reset --hard HEAD
+git clean -fdx
+for i in ../targets/${TARGET}/*; do
+    if [[ $i == *.patch ]]; then
+        patch -Np1 -i $i
+    fi
+done
+popd
+
+# crosstool-NG
+sudo mkdir -p /opt
+sudo rm -rf /opt/ct-ng
+pushd builder
+./bootstrap
+./configure --prefix=/opt/ct-ng
+make -j`nproc`
+sudo make install
+popd
+
+# Install host toolchain
+rootdir="/opt/x-tools"
+name="${HOST}.tar.xz"
+sudo rm -rf "${rootdir}/${HOST}"
+sudo mkdir -p "$rootdir"
+echo "Extracting \"${name}\" to \"${rootdir}\" ..."
+sudo tar -xf "$name" -C "$rootdir"
+
+# Use host toolchain
+export PATH=${rootdir}/${HOST}/bin:$PATH
+
+# Build
+sudo rm -rf build
+mkdir build
+pushd build
+cp ../targets/${TARGET}/config .config
+cat << EOF >> .config
+CT_CONFIG_VERSION="4"
+CT_EXPERIMENTAL=y
+CT_LOCAL_TARBALLS_DIR="${source_dir}"
+CT_PREFIX_DIR="musl-cross"
+CT_CONNECT_TIMEOUT=120
+CT_DOWNLOAD_WGET_OPTIONS="--tries=20 -nc --progress=dot:binary"
+# CT_LOG_PROGRESS_BAR is not set
+# CT_SHOW_CT_VERSION is not set
+# CT_CROSS is not set
+CT_CANADIAN=y
+CT_TOOLCHAIN_TYPE="canadian"
+CT_HOST="${HOST}"
+CT_HOST_PREFIX=""
+CT_HOST_SUFFIX=""
+# CT_LINKER_MOLD is not set
+EOF
+/opt/ct-ng/bin/ct-ng olddefconfig
+echo -e "\n*** CT config ***\n"
+cat .config
+echo -e "\n******\n"
+
+/opt/ct-ng/bin/ct-ng build
+
+# Dynamic library for host
+find "musl-cross" -maxdepth 2 -exec chmod +w {} \;
+mkdir -p "musl-cross/lib"
+host_lib="${rootdir}/${HOST}/${HOST}/sysroot/lib"
+for f in "${host_lib}"/ld-*.so.* ; do
+	if [ -f "$f" ]; then
+		echo "Copying \"$f\" to \"musl-cross/lib/\""
+		cp "$f" "musl-cross/lib/"
+	fi
+done
+mkdir -p "musl-cross/bin"
+host_lib2="${rootdir}/${HOST}/${HOST}/sysroot/usr/${HOST}/bin"
+for f in "${host_lib2}"/libwinpthread-*.dll ; do
+	if [ -f "$f" ]; then
+		echo "Copying \"$f\" to \"musl-cross/bin/\""
+		cp "$f" "musl-cross/bin/"
+	fi
+done
+rm -f "musl-cross/build.log.bz2"
+rm -f "musl-cross/toolchain.cmake"
+rm -f "musl-cross/share/${TARGET}-ct-ng.config.bz2"
+find "musl-cross" -maxdepth 2 -exec chmod a-w {} \;
+
+case $HOST in
+	aarch64-unknown-linux-gnu)
+		host_name="linux-arm64" ;;
+	x86_64-unknown-linux-gnu)
+		host_name="linux-x64" ;;
+	x86_64-w64-mingw32)
+		host_name="win-x64" ;;
+	*)
+		host_name=$(sed 's/-unknown//g' <<< "$HOST") ;;
+esac
+if [[ $host_name =~ win-* ]]; then
+	rename_files_windows "musl-cross/${TARGET}"
+fi
+
+# Tarballs
+sudo rm -rf ${TARGET}
+mv musl-cross ${TARGET}
+sudo chown -R root:root ${TARGET}
+
+name="${host_name}_${TARGET}"
+if [[ $host_name =~ win-* ]]; then
+	echo -e "\nCreating \"${name}.zip\" ...\n"
+	zip -r "../${name}.zip" ${TARGET}
+	sha256sum "../${name}.zip" | awk '{ print $1 }' > "../${name}.zip.sha256"
+else
+	echo -e "\nCreating \"${name}.tar.xz\" ...\n"
+	tar -cJvf "../${name}.tar.xz" ${TARGET}
+	sha256sum "../${name}.tar.xz" | awk '{ print $1 }' > "../${name}.tar.xz.sha256"
+fi
+
+popd
+sudo rm -rf build
+
+echo -e "\nDone.\n"

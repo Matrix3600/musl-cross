@@ -1,14 +1,15 @@
-name: Release
+name: Release ARM64
 
 on:
   workflow_dispatch:
   push:
-    tags: ['*', '!arm64-*', '!win64-*', '!test-*']
+    tags: ['arm64-*']
 
 permissions:
   contents: read
 
 env:
+  TOOLCHAIN_HOST: aarch64-unknown-linux-gnu
   CTNG_SOURCE_DIR: source-tarballs
 
 jobs:
@@ -58,10 +59,6 @@ jobs:
           - mips64-unknown-linux-musl
           - mips64el-unknown-linux-musl
           - or1k-unknown-linux-musl
-          - powerpc-unknown-linux-musl
-          - powerpcle-unknown-linux-musl
-          - powerpc64-unknown-linux-musl
-          - powerpc64le-unknown-linux-musl
           - riscv32-unknown-linux-musl
           - riscv64-unknown-linux-musl
           - s390x-ibm-linux-musl
@@ -83,12 +80,12 @@ jobs:
         run: |
           ls -l "$CTNG_SOURCE_DIR"
           sudo rm -rf /opt/*
-          ./scripts/make "${{ matrix.target }}"
+          ./scripts/make_canadian "${{ env.TOOLCHAIN_HOST }}" "${{ matrix.target }}"
       - name: Upload package
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.target }}
-          path: "${{ matrix.target }}.tar.xz*"
+          name: ${{ env.TOOLCHAIN_HOST }}_${{ matrix.target }}
+          path: "*_${{ matrix.target }}.tar.xz*"
           if-no-files-found: error
           retention-days: 1
 
@@ -108,7 +105,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: release
-          pattern: "*-*-*"
+          pattern: "${{ env.TOOLCHAIN_HOST }}_*-*-*"
           merge-multiple: true
       - name: Create release
         env:
