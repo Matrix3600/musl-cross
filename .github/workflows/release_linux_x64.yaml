@@ -1,4 +1,4 @@
-name: Release
+name: Release Linux x64
 
 on:
   workflow_dispatch:
@@ -84,7 +84,7 @@ jobs:
         run: |
           ls -l "$CTNG_SOURCE_DIR"
           sudo rm -rf /opt/*
-          ./scripts/make "${{ matrix.target }}" "${{ env.TOOLCHAIN_HOST_NAME }}"
+          ./scripts/make "${{ matrix.target }}"
       - name: Upload package
         uses: actions/upload-artifact@v7
         with:

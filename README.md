@@ -72,9 +72,8 @@ The host architecture (on which the toolchains run) depends on the begining of t
 
 Otherwise you can also publish a release directly.
 
-Or build manually:
+Or build manually for your machine's architecture:
 ```sh
-./scripts/pre-download
 ./scripts/make ${target}
 ```
 

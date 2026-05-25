@@ -247,15 +247,14 @@ if [[ $TARGET == "powerpcle-unknown-linux-musl" && \
 	popd
 fi
 
-case $HOST in
-	aarch64-unknown-linux-gnu)
+host_name="$(sed 's/-unknown//g' <<< "$HOST")"
+case $host_name in
+	aarch64-linux-gnu)
 		host_name="linux-arm64" ;;
-	x86_64-unknown-linux-gnu)
+	x86_64-linux-gnu)
 		host_name="linux-x64" ;;
 	x86_64-w64-mingw32)
 		host_name="win-x64" ;;
-	*)
-		host_name=$(sed 's/-unknown//g' <<< "$HOST") ;;
 esac
 if [[ $host_name =~ win-* ]]; then
 	rename_files_windows "musl-cross/${TARGET}"

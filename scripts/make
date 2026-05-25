@@ -2,8 +2,23 @@
 
 set -e -o pipefail
 
+
+function get_build_machine_type()
+{
+	local system="linux"
+	local arch=""
+	case $(uname -m) in
+		i?86) arch="x86" ;;
+		x86_64) arch="x64" ;;
+		aarch64*|arm64|armv8*) arch="arm64" ;;
+	esac
+	if [ -n "$arch" ]; then printf '%s\n' "${system}-${arch}"
+	else printf '%s\n' "$system"
+	fi
+}
+
+
 TARGET=$1
-HOST_NAME=$2
 
 if [ -z "$TARGET" ]; then
 	echo "[ERROR] Target is missing."
@@ -110,12 +125,9 @@ sudo rm -rf ${TARGET}
 mv musl-cross ${TARGET}
 sudo chown -R root:root ${TARGET}
 
-if [ -n "$HOST_NAME" ]; then
-	name="${HOST_NAME}_${TARGET}.tar.xz"
-else
-	name="${TARGET}.tar.xz"
-fi
+host_name="$(get_build_machine_type)"
 
+name="${host_name}_${TARGET}.tar.xz"
 echo -e "\nCreating \"${name}\" ...\n"
 tar -cJvf "../${name}" "${TARGET}"
 hash=$(sha256sum "../${name}" | awk '{ print $1 }')
