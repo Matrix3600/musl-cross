@@ -1,4 +1,4 @@
-name: Release Win64
+name: Release Windows x64
 
 on:
   workflow_dispatch:
@@ -10,6 +10,7 @@ permissions:
 
 env:
   TOOLCHAIN_HOST: x86_64-w64-mingw32
+  TOOLCHAIN_HOST_NAME: win-x64
   CTNG_SOURCE_DIR: source-tarballs
 
 jobs:
@@ -38,7 +39,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: [pre-download]
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         target:
           - aarch64-unknown-linux-musl
@@ -83,8 +84,8 @@ jobs:
       - name: Upload package
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ env.TOOLCHAIN_HOST }}_${{ matrix.target }}
-          path: "*_${{ matrix.target }}.zip*"
+          name: ${{ env.TOOLCHAIN_HOST_NAME }}_${{ matrix.target }}
+          path: "*_${{ matrix.target }}.7z*"
           if-no-files-found: error
           retention-days: 1
 
@@ -104,7 +105,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: release
-          pattern: "*-*-*"
+          pattern: "${{ env.TOOLCHAIN_HOST_NAME }}_*-*-*"
           merge-multiple: true
       - name: Create release
         env:
@@ -117,6 +118,10 @@ jobs:
               --title="$tag" \
               --generate-notes --draft
           fi
-          for name in release/*.zip; do
-            gh release upload "$tag" "$name" "$name.sha256"
+          hashfile="@${{ env.TOOLCHAIN_HOST_NAME }}-SHA256SUMS"
+          rm -f "$hashfile"
+          for name in release/*.7z; do
+            gh release upload "$tag" "$name"
+            cat "${name}.sha256" >> "$hashfile"
           done
+          gh release upload "$tag" "$hashfile"

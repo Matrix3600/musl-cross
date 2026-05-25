@@ -1,4 +1,4 @@
-name: Release ARM64
+name: Release Linux ARM64
 
 on:
   workflow_dispatch:
@@ -10,6 +10,7 @@ permissions:
 
 env:
   TOOLCHAIN_HOST: aarch64-unknown-linux-gnu
+  TOOLCHAIN_HOST_NAME: linux-arm64
   CTNG_SOURCE_DIR: source-tarballs
 
 jobs:
@@ -84,7 +85,7 @@ jobs:
       - name: Upload package
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ env.TOOLCHAIN_HOST }}_${{ matrix.target }}
+          name: ${{ env.TOOLCHAIN_HOST_NAME }}_${{ matrix.target }}
           path: "*_${{ matrix.target }}.tar.xz*"
           if-no-files-found: error
           retention-days: 1
@@ -105,7 +106,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: release
-          pattern: "${{ env.TOOLCHAIN_HOST }}_*-*-*"
+          pattern: "${{ env.TOOLCHAIN_HOST_NAME }}_*-*-*"
           merge-multiple: true
       - name: Create release
         env:
@@ -118,6 +119,10 @@ jobs:
               --title="$tag" \
               --generate-notes --draft
           fi
+          hashfile="@${{ env.TOOLCHAIN_HOST_NAME }}-SHA256SUMS"
+          rm -f "$hashfile"
           for name in release/*.tar.xz; do
-            gh release upload "$tag" "$name" "$name.sha256"
+            gh release upload "$tag" "$name"
+            cat "${name}.sha256" >> "$hashfile"
           done
+          gh release upload "$tag" "$hashfile"

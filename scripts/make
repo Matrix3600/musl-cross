@@ -3,6 +3,7 @@
 set -e -o pipefail
 
 TARGET=$1
+HOST_NAME=$2
 
 if [ -z "$TARGET" ]; then
 	echo "[ERROR] Target is missing."
@@ -70,7 +71,7 @@ sudo rm -rf build
 mkdir build
 pushd build
 cp "../targets/${TARGET}/config" .config
-cat << 'EOF' >> .config
+cat << EOF >> .config
 CT_CONFIG_VERSION="4"
 CT_EXPERIMENTAL=y
 CT_LOCAL_TARBALLS_DIR="../source-tarballs"
@@ -94,14 +95,31 @@ rm -f "musl-cross/toolchain.cmake"
 rm -f "musl-cross/share/${TARGET}-ct-ng.config.bz2"
 find "musl-cross" -maxdepth 2 -exec chmod a-w {} \;
 
+# Fix invalid absolute symbolic link
+linkname="musl-cross/${TARGET}/sysroot/lib/ld-musl-powerpc.so.1"
+if [[ $TARGET == "powerpcle-unknown-linux-musl" && \
+	$(readlink "$linkname") == "/usr/lib/libc.so" ]]; then
+	pushd "$(dirname "$linkname")"
+	echo "Fixing invalid absolute link ${linkname}"
+	sudo ln -rsf "../usr/lib/libc.so" "$(basename "$linkname")"
+	popd
+fi
+
 # Tarball
 sudo rm -rf ${TARGET}
 mv musl-cross ${TARGET}
 sudo chown -R root:root ${TARGET}
-name=$TARGET
-echo -e "\nCreating \"${name}.tar.xz\" ...\n"
-tar -cJvf ../${name}.tar.xz ${TARGET}
-sha256sum ../${name}.tar.xz | awk '{ print $1 }' > ../${name}.tar.xz.sha256
+
+if [ -n "$HOST_NAME" ]; then
+	name="${HOST_NAME}_${TARGET}.tar.xz"
+else
+	name="${TARGET}.tar.xz"
+fi
+
+echo -e "\nCreating \"${name}\" ...\n"
+tar -cJvf "../${name}" "${TARGET}"
+hash=$(sha256sum "../${name}" | awk '{ print $1 }')
+printf '%s *%s\n' "$hash" "$name" > "../${name}.sha256"
 popd
 sudo rm -rf build
 

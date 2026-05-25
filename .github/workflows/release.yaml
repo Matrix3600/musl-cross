@@ -9,6 +9,7 @@ permissions:
   contents: read
 
 env:
+  TOOLCHAIN_HOST_NAME: linux-x64
   CTNG_SOURCE_DIR: source-tarballs
 
 jobs:
@@ -83,12 +84,12 @@ jobs:
         run: |
           ls -l "$CTNG_SOURCE_DIR"
           sudo rm -rf /opt/*
-          ./scripts/make "${{ matrix.target }}"
+          ./scripts/make "${{ matrix.target }}" "${{ env.TOOLCHAIN_HOST_NAME }}"
       - name: Upload package
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.target }}
-          path: "${{ matrix.target }}.tar.xz*"
+          name: ${{ env.TOOLCHAIN_HOST_NAME }}_${{ matrix.target }}
+          path: "*_${{ matrix.target }}.tar.xz*"
           if-no-files-found: error
           retention-days: 1
 
@@ -108,7 +109,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: release
-          pattern: "*-*-*"
+          pattern: "${{ env.TOOLCHAIN_HOST_NAME }}_*-*-*"
           merge-multiple: true
       - name: Create release
         env:
@@ -121,6 +122,10 @@ jobs:
               --title="$tag" \
               --generate-notes --draft
           fi
+          hashfile="@${{ env.TOOLCHAIN_HOST_NAME }}-SHA256SUMS"
+          rm -f "$hashfile"
           for name in release/*.tar.xz; do
-            gh release upload "$tag" "$name" "$name.sha256"
+            gh release upload "$tag" "$name"
+            cat "${name}.sha256" >> "$hashfile"
           done
+          gh release upload "$tag" "$hashfile"

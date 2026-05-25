@@ -7,7 +7,7 @@ These ready-to-use toolchains run on:
 
 - Linux x86_64
 - Linux ARM64
-- Windows x86_64
+- Windows x86-64
 
 
 ## Supported targets
@@ -64,6 +64,11 @@ git tag <tag_name>
 git push origin <tag_name>
 ```
 This builds the files and creates a draft release.
+
+The host architecture (on which the toolchains run) depends on the begining of the tag name:
+- "arm64-" for Linux ARM64
+- "win64-" for Windows x86-64
+- any other for Linux x86-64
 
 Otherwise you can also publish a release directly.
 

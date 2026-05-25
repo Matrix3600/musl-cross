@@ -113,7 +113,7 @@ if [ ! -f "${HOST}.tar.xz" ]; then
 			url="${GH_URL_MINGW}/mingw-cross/releases/download/${GH_VER_MINGW}/${HOST}.tar.xz"
 			;;
 	esac
-	wget -nv -nc -T 120 --tries=20 --progress=dot:binary "$url"
+	wget -nv -nc -T 120 --tries=20 "$url"
 	if [ $? != 0 ]; then
 		echo "[ERROR] Host not supported (${HOST})."
 		exit 1
@@ -189,7 +189,7 @@ export PATH=${rootdir}/${HOST}/bin:$PATH
 sudo rm -rf build
 mkdir build
 pushd build
-cp ../targets/${TARGET}/config .config
+cp "../targets/${TARGET}/config" .config
 cat << EOF >> .config
 CT_CONFIG_VERSION="4"
 CT_EXPERIMENTAL=y
@@ -237,6 +237,16 @@ rm -f "musl-cross/toolchain.cmake"
 rm -f "musl-cross/share/${TARGET}-ct-ng.config.bz2"
 find "musl-cross" -maxdepth 2 -exec chmod a-w {} \;
 
+# Fix invalid absolute symbolic link
+linkname="musl-cross/${TARGET}/sysroot/lib/ld-musl-powerpc.so.1"
+if [[ $TARGET == "powerpcle-unknown-linux-musl" && \
+	$(readlink "$linkname") == "/usr/lib/libc.so" ]]; then
+	pushd "$(dirname "$linkname")"
+	echo "Fixing invalid absolute link ${linkname}"
+	sudo ln -rsf "../usr/lib/libc.so" "$(basename "$linkname")"
+	popd
+fi
+
 case $HOST in
 	aarch64-unknown-linux-gnu)
 		host_name="linux-arm64" ;;
@@ -256,17 +266,17 @@ sudo rm -rf ${TARGET}
 mv musl-cross ${TARGET}
 sudo chown -R root:root ${TARGET}
 
-name="${host_name}_${TARGET}"
 if [[ $host_name =~ win-* ]]; then
-	echo -e "\nCreating \"${name}.zip\" ...\n"
-	zip -r "../${name}.zip" ${TARGET}
-	sha256sum "../${name}.zip" | awk '{ print $1 }' > "../${name}.zip.sha256"
+	name="${host_name}_${TARGET}.7z"
+	echo -e "\nCreating \"${name}\" ...\n"
+	7z a -mx9 "../${name}" "${TARGET}"
 else
-	echo -e "\nCreating \"${name}.tar.xz\" ...\n"
-	tar -cJvf "../${name}.tar.xz" ${TARGET}
-	sha256sum "../${name}.tar.xz" | awk '{ print $1 }' > "../${name}.tar.xz.sha256"
+	name="${host_name}_${TARGET}.tar.xz"
+	echo -e "\nCreating \"${name}\" ...\n"
+	tar -cJvf "../${name}" "${TARGET}"
 fi
-
+hash="$(sha256sum "../${name}" | awk '{ print $1 }')"
+printf '%s *%s\n' "$hash" "$name" > "../${name}.sha256"
 popd
 sudo rm -rf build
 
