@@ -1,11 +1,11 @@
 # musl-cross
 
 This is a simple and lightweight project for making a cross-compilation
-toolchain with the GCC compiler and the musl C library.
+toolchain with the GCC compiler and the Musl C library.
 
 These ready-to-use toolchains run on:
 
-- Linux x86_64
+- Linux x86-64
 - Linux ARM64
 - Windows x86-64
 
@@ -44,16 +44,26 @@ These ready-to-use toolchains run on:
 
 ## How to use
 
-Download the tarball from the [release page](https://github.com/Matrix3600/musl-cross/releases) and extract it to `/opt/x-tools`:
+Download the tarball from the [release page](https://github.com/Matrix3600/musl-cross/releases).
+Choose the one that corresponds to the `host` system on which the toolchain will run, and the `target` for which you want to generate executables (from the list above).
 
-```sh
-sudo mkdir -p /opt/x-tools
-sudo tar -xf ${target}.tar.xz -C /opt/x-tools
+The tarball names are `<host>_<target>.tar.xz` for Linux,
+or `<host>_<target>.7z` for Windows.
 
-export PATH="/opt/x-tools/${target}/bin:$PATH"
-${target}-gcc hello.c -o hello
+On Linux, extract the tarball to `/opt/x-tools`:
 ```
-Replace `${target}` with one of the targets above.
+sudo mkdir -p /opt/x-tools
+sudo tar -xf <host>_<target>.tar.xz -C /opt/x-tools
+
+export PATH="/opt/x-tools/<target>/bin:$PATH"
+<target>-gcc hello.c -o hello
+```
+
+On Windows, extract it to `C:\x-tools`, then type:
+```
+PATH=C:\x-tools\<target>\bin;%PATH%
+<target>-gcc hello.c -o hello
+```
 
 ## How to build
 
@@ -65,7 +75,7 @@ git push origin <tag_name>
 ```
 This builds the files and creates a draft release.
 
-The host architecture (on which the toolchains run) depends on the begining of the tag name:
+The host architecture (on which the toolchains run) depends on the beginning of the tag name:
 - "arm64-" for Linux ARM64
 - "win64-" for Windows x86-64
 - any other for Linux x86-64
@@ -73,8 +83,8 @@ The host architecture (on which the toolchains run) depends on the begining of t
 Otherwise you can also publish a release directly.
 
 Or build manually for your machine's architecture:
-```sh
-./scripts/make ${target}
+```
+./scripts/make <target>
 ```
 
 ## License
