@@ -59,8 +59,10 @@ export PATH="/opt/x-tools/<target>/bin:$PATH"
 <target>-gcc hello.c -o hello
 ```
 
-On Windows, extract it to `C:\x-tools`, then type:
+On Windows, extract it to `C:\x-tools`:
 ```
+mkdir C:\x-tools
+tar -xf <host>_<target>.7z -C C:\x-tools
 PATH=C:\x-tools\<target>\bin;%PATH%
 <target>-gcc hello.c -o hello
 ```
