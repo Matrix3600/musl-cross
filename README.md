@@ -3,12 +3,11 @@
 This is a simple and lightweight project for making a cross-compilation
 toolchain with the GCC compiler and the Musl C library.
 
-These ready-to-use toolchains run on:
+These [ready-to-use](https://github.com/Matrix3600/musl-cross/releases) toolchains run on:
 
 - Linux x86-64
 - Linux ARM64
 - Windows x86-64
-
 
 ## Supported targets
 
@@ -78,9 +77,9 @@ git push origin <tag_name>
 This builds the files and creates a draft release.
 
 The host architecture (on which the toolchains run) depends on the beginning of the tag name:
+- "x64-" for Linux x86-64
 - "arm64-" for Linux ARM64
-- "win64-" for Windows x86-64
-- any other for Linux x86-64
+- "win-x64-" for Windows x86-64
 
 Otherwise you can also publish a release directly.
 
