@@ -1,16 +1,15 @@
-name: Release Linux ARM64
+name: Release Linux x64
 
 on:
   workflow_dispatch:
   push:
-    tags: ['arm64-*']
+    tags: ['x64-*']
 
 permissions:
   contents: read
 
 env:
-  TOOLCHAIN_HOST: aarch64-unknown-linux-gnu
-  TOOLCHAIN_HOST_NAME: linux-arm64
+  TOOLCHAIN_HOST_NAME: linux-x64
   CTNG_SOURCE_DIR: source-tarballs
 
 jobs:
@@ -60,6 +59,10 @@ jobs:
           - mips64-unknown-linux-musl
           - mips64el-unknown-linux-musl
           - or1k-unknown-linux-musl
+          - powerpc-unknown-linux-musl
+          - powerpcle-unknown-linux-musl
+          - powerpc64-unknown-linux-musl
+          - powerpc64le-unknown-linux-musl
           - riscv32-unknown-linux-musl
           - riscv64-unknown-linux-musl
           - s390x-ibm-linux-musl
@@ -81,7 +84,7 @@ jobs:
         run: |
           ls -l "$CTNG_SOURCE_DIR"
           sudo rm -rf /opt/*
-          ./scripts/make_canadian "${{ env.TOOLCHAIN_HOST }}" "${{ matrix.target }}"
+          ./scripts/make "${{ matrix.target }}"
       - name: Upload package
         uses: actions/upload-artifact@v7
         with:

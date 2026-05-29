@@ -1,15 +1,16 @@
-name: Release Linux x64
+name: Release Windows x64
 
 on:
   workflow_dispatch:
   push:
-    tags: ['*', '!arm64-*', '!win64-*', '!test-*']
+    tags: ['win-x64-*']
 
 permissions:
   contents: read
 
 env:
-  TOOLCHAIN_HOST_NAME: linux-x64
+  TOOLCHAIN_HOST: x86_64-w64-mingw32
+  TOOLCHAIN_HOST_NAME: win-x64
   CTNG_SOURCE_DIR: source-tarballs
 
 jobs:
@@ -59,13 +60,8 @@ jobs:
           - mips64-unknown-linux-musl
           - mips64el-unknown-linux-musl
           - or1k-unknown-linux-musl
-          - powerpc-unknown-linux-musl
-          - powerpcle-unknown-linux-musl
-          - powerpc64-unknown-linux-musl
-          - powerpc64le-unknown-linux-musl
           - riscv32-unknown-linux-musl
           - riscv64-unknown-linux-musl
-          - s390x-ibm-linux-musl
           - sh4-multilib-linux-musl
           - x86_64-unknown-linux-musl
     steps:
@@ -84,12 +80,12 @@ jobs:
         run: |
           ls -l "$CTNG_SOURCE_DIR"
           sudo rm -rf /opt/*
-          ./scripts/make "${{ matrix.target }}"
+          ./scripts/make_canadian "${{ env.TOOLCHAIN_HOST }}" "${{ matrix.target }}"
       - name: Upload package
         uses: actions/upload-artifact@v7
         with:
           name: ${{ env.TOOLCHAIN_HOST_NAME }}_${{ matrix.target }}
-          path: "*_${{ matrix.target }}.tar.xz*"
+          path: "*_${{ matrix.target }}.7z*"
           if-no-files-found: error
           retention-days: 1
 
@@ -124,7 +120,7 @@ jobs:
           fi
           hashfile="@${{ env.TOOLCHAIN_HOST_NAME }}-SHA256SUMS"
           rm -f "$hashfile"
-          for name in release/*.tar.xz; do
+          for name in release/*.7z; do
             gh release upload "$tag" "$name"
             cat "${name}.sha256" >> "$hashfile"
           done
