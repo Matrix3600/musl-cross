@@ -10,7 +10,9 @@ function get_build_machine_type()
 	else
 		local system="linux"
 		case $(uname -s) in
+			Linux) ;;
 			Darwin) system="macos" ;;
+			*) echo "uname -s: \"$(uname -s)\"" >&2 ;;
 		esac
 	fi
 	local arch=""
@@ -18,10 +20,130 @@ function get_build_machine_type()
 		i?86) arch="x86" ;;
 		x86_64|amd64) arch="x64" ;;
 		aarch64*|arm64|armv8*) arch="arm64" ;;
+		*) echo "uname -m: \"$(uname -m)\"" >&2 ;;
 	esac
 	if [ -n "$arch" ]; then printf '%s\n' "${system}-${arch}"
 	else printf '%s\n' "$system"
 	fi
+}
+
+
+function install_packages()
+{
+	local system="$(get_build_machine_type)"
+	system=${system%%-*}
+
+	local packages="\
+		autoconf \
+		automake \
+		bison \
+		bzip2 \
+		flex \
+		gawk \
+		gcc \
+		git \
+		gperf \
+		help2man \
+		make \
+		python3 \
+		rsync \
+		texinfo \
+		unzip \
+		wget \
+	"
+	case $system in
+		linux)
+			packages="${packages} \
+				g++ \
+				libncurses-dev \
+				libtool-bin \
+				patch \
+				xz-utils \
+			" ;;
+		macos)
+			packages="${packages} \
+				bash \
+				binutils \
+				gnu-sed \
+				gnu-tar \
+				gettext \
+				libtool \
+				ncurses \
+				readline \
+				xz \
+				zstd \
+			" ;;
+	esac
+
+	case $system in
+		linux)
+			sudo apt-get update
+			sudo apt-get install -y --no-install-recommends $packages
+		;;
+		macos)
+			brew update
+			brew install --quiet $packages
+		;;
+	esac
+}
+
+
+function build_target()
+{
+	local TARGET="$1"
+
+	sudo rm -rf build
+	mkdir build
+	pushd build
+	cp "../targets/${TARGET}/config" .config
+	cat <<- EOF >> .config
+		CT_CONFIG_VERSION="4"
+		CT_EXPERIMENTAL=y
+		CT_LOCAL_TARBALLS_DIR="../source-tarballs"
+		CT_PREFIX_DIR="musl-cross"
+		CT_CONNECT_TIMEOUT=120
+		CT_DOWNLOAD_WGET_OPTIONS="--tries=20 -nc --progress=dot:binary"
+		# CT_LOG_PROGRESS_BAR is not set
+		# CT_SHOW_CT_VERSION is not set
+	EOF
+	/opt/ct-ng/bin/ct-ng olddefconfig
+	echo -e "\n*** CT config ***\n"
+	cat .config
+	echo -e "\n******\n"
+
+	/opt/ct-ng/bin/ct-ng build
+
+	find "musl-cross" -maxdepth 2 -exec chmod +w {} \;
+	mkdir -p "musl-cross/lib"
+	rm -f "musl-cross/build.log.bz2"
+	rm -f "musl-cross/toolchain.cmake"
+	rm -f "musl-cross/share/${TARGET}-ct-ng.config.bz2"
+	find "musl-cross" -maxdepth 2 -exec chmod a-w {} \;
+
+	# Fix invalid absolute symbolic link
+	local linkname="musl-cross/${TARGET}/sysroot/lib/ld-musl-powerpc.so.1"
+	if [[ $TARGET == "powerpcle-unknown-linux-musl" && \
+		$(readlink "$linkname") == "/usr/lib/libc.so" ]]; then
+		pushd "$(dirname "$linkname")"
+		echo "Fixing invalid absolute link ${linkname}"
+		sudo ln -rsf "../usr/lib/libc.so" "$(basename "$linkname")"
+		popd
+	fi
+
+	# Tarball
+	sudo rm -rf ${TARGET}
+	mv musl-cross ${TARGET}
+	sudo chown -R root:0 ${TARGET}
+
+	local host_name="$(get_build_machine_type)"
+
+	local name="${host_name}_${TARGET}.tar.xz"
+	echo -e "\nCreating \"${name}\" ...\n"
+	tar -cJvf "../${name}" "${TARGET}"
+	local hash="$(sha256sum "../${name}" | awk '{ print $1 }')"
+	printf '%s *%s\n' "$hash" "$name" > "../${name}.sha256"
+	popd
+	sudo rm -rf build
 }
 
 
@@ -37,44 +159,16 @@ if [ ! -f "targets/${TARGET}/config" ]; then
 	exit 1
 fi
 
-# Packages
-sudo apt-get update
-sudo apt-get install -y --no-install-recommends \
-  automake \
-  bison \
-  bzip2 \
-  ca-certificates \
-  cmake \
-  curl \
-  file \
-  flex \
-  g++ \
-  gawk \
-  gdb \
-  git \
-  gperf \
-  help2man \
-  libncurses-dev \
-  libssl-dev \
-  libtool-bin \
-  make \
-  patch \
-  pkg-config \
-  python3 \
-  rsync \
-  texinfo \
-  unzip \
-  wget \
-  xz-utils
+install_packages
 
 # Patch
 pushd builder
 git reset --hard HEAD
 git clean -fdx
 for i in ../targets/${TARGET}/*; do
-    if [[ $i == *.patch ]]; then
-        patch -Np1 -i $i
-    fi
+	if [[ $i == *.patch ]]; then
+		patch -Np1 -i $i
+	fi
 done
 popd
 
@@ -88,58 +182,6 @@ make -j`nproc`
 sudo make install
 popd
 
-# Build
-sudo rm -rf build
-mkdir build
-pushd build
-cp "../targets/${TARGET}/config" .config
-cat << EOF >> .config
-CT_CONFIG_VERSION="4"
-CT_EXPERIMENTAL=y
-CT_LOCAL_TARBALLS_DIR="../source-tarballs"
-CT_PREFIX_DIR="musl-cross"
-CT_CONNECT_TIMEOUT=120
-CT_DOWNLOAD_WGET_OPTIONS="--tries=20 -nc --progress=dot:binary"
-# CT_LOG_PROGRESS_BAR is not set
-# CT_SHOW_CT_VERSION is not set
-EOF
-/opt/ct-ng/bin/ct-ng olddefconfig
-echo -e "\n*** CT config ***\n"
-cat .config
-echo -e "\n******\n"
-
-/opt/ct-ng/bin/ct-ng build
-
-find "musl-cross" -maxdepth 2 -exec chmod +w {} \;
-mkdir -p "musl-cross/lib"
-rm -f "musl-cross/build.log.bz2"
-rm -f "musl-cross/toolchain.cmake"
-rm -f "musl-cross/share/${TARGET}-ct-ng.config.bz2"
-find "musl-cross" -maxdepth 2 -exec chmod a-w {} \;
-
-# Fix invalid absolute symbolic link
-linkname="musl-cross/${TARGET}/sysroot/lib/ld-musl-powerpc.so.1"
-if [[ $TARGET == "powerpcle-unknown-linux-musl" && \
-	$(readlink "$linkname") == "/usr/lib/libc.so" ]]; then
-	pushd "$(dirname "$linkname")"
-	echo "Fixing invalid absolute link ${linkname}"
-	sudo ln -rsf "../usr/lib/libc.so" "$(basename "$linkname")"
-	popd
-fi
-
-# Tarball
-sudo rm -rf ${TARGET}
-mv musl-cross ${TARGET}
-sudo chown -R root:root ${TARGET}
-
-host_name="$(get_build_machine_type)"
-
-name="${host_name}_${TARGET}.tar.xz"
-echo -e "\nCreating \"${name}\" ...\n"
-tar -cJvf "../${name}" "${TARGET}"
-hash=$(sha256sum "../${name}" | awk '{ print $1 }')
-printf '%s *%s\n' "$hash" "$name" > "../${name}.sha256"
-popd
-sudo rm -rf build
+build_target "$TARGET"
 
 echo -e "\nDone.\n"

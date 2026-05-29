@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 
+# Currently, this script only runs on Linux x64.
+
 set -o pipefail
 
 GH_URL_GNU="https://github.com/cross-tools"
 GH_URL_MUSL="https://github.com/Matrix3600"
 GH_URL_MINGW="https://github.com/cross-tools"
 GH_VER_GNU=20260515
-GH_VER_MUSL=20260515
+GH_VER_MUSL=20260528
 GH_VER_MINGW=20260515
 
 
@@ -64,6 +66,134 @@ function rename_files_windows()
 }
 
 
+function install_packages()
+{
+	sudo apt-get update
+	sudo apt-get install -y --no-install-recommends \
+		7zip \
+		autoconf \
+		automake \
+		bison \
+		bzip2 \
+		flex \
+		g++ \
+		gawk \
+		gcc \
+		git \
+		gperf \
+		help2man \
+		libncurses-dev \
+		libtool-bin \
+		make \
+		patch \
+		python3 \
+		rsync \
+		texinfo \
+		unzip \
+		wget \
+		xz-utils
+}
+
+
+function build_target()
+{
+	local TARGET="$1"
+
+	sudo rm -rf build
+	mkdir build
+	pushd build
+	cp "../targets/${TARGET}/config" .config
+	cat <<- EOF >> .config
+		CT_CONFIG_VERSION="4"
+		CT_EXPERIMENTAL=y
+		CT_LOCAL_TARBALLS_DIR="${source_dir}"
+		CT_PREFIX_DIR="musl-cross"
+		CT_CONNECT_TIMEOUT=120
+		CT_DOWNLOAD_WGET_OPTIONS="--tries=20 -nc --progress=dot:binary"
+		# CT_LOG_PROGRESS_BAR is not set
+		# CT_SHOW_CT_VERSION is not set
+		# CT_CROSS is not set
+		CT_CANADIAN=y
+		CT_TOOLCHAIN_TYPE="canadian"
+		CT_HOST="${HOST}"
+		CT_HOST_PREFIX=""
+		CT_HOST_SUFFIX=""
+		# CT_LINKER_MOLD is not set
+	EOF
+	/opt/ct-ng/bin/ct-ng olddefconfig
+	echo -e "\n*** CT config ***\n"
+	cat .config
+	echo -e "\n******\n"
+
+	/opt/ct-ng/bin/ct-ng build
+
+	# Dynamic library for host
+	find "musl-cross" -maxdepth 2 -exec chmod +w {} \;
+	mkdir -p "musl-cross/lib"
+	local host_lib="${rootdir}/${HOST}/${HOST}/sysroot/lib"
+	for f in "${host_lib}"/ld-*.so.* ; do
+		if [ -f "$f" ]; then
+			echo "Copying \"$f\" to \"musl-cross/lib/\""
+			cp "$f" "musl-cross/lib/"
+		fi
+	done
+	mkdir -p "musl-cross/bin"
+	local host_lib2="${rootdir}/${HOST}/${HOST}/sysroot/usr/${HOST}/bin"
+	for f in "${host_lib2}"/libwinpthread-*.dll ; do
+		if [ -f "$f" ]; then
+			echo "Copying \"$f\" to \"musl-cross/bin/\""
+			cp "$f" "musl-cross/bin/"
+		fi
+	done
+	rm -f "musl-cross/build.log.bz2"
+	rm -f "musl-cross/toolchain.cmake"
+	rm -f "musl-cross/share/${TARGET}-ct-ng.config.bz2"
+	find "musl-cross" -maxdepth 2 -exec chmod a-w {} \;
+
+	# Fix invalid absolute symbolic link
+	local linkname="musl-cross/${TARGET}/sysroot/lib/ld-musl-powerpc.so.1"
+	if [[ $TARGET == "powerpcle-unknown-linux-musl" && \
+		$(readlink "$linkname") == "/usr/lib/libc.so" ]]; then
+		pushd "$(dirname "$linkname")"
+		echo "Fixing invalid absolute link ${linkname}"
+		sudo ln -rsf "../usr/lib/libc.so" "$(basename "$linkname")"
+		popd
+	fi
+
+	local host_name="$(sed 's/-unknown//g' <<< "$HOST")"
+	case $host_name in
+		aarch64-linux-gnu)
+			host_name="linux-arm64" ;;
+		x86_64-linux-gnu)
+			host_name="linux-x64" ;;
+		x86_64-w64-mingw32)
+			host_name="win-x64" ;;
+	esac
+	if [[ $host_name =~ win-* ]]; then
+		rename_files_windows "musl-cross/${TARGET}"
+	fi
+
+	# Tarball
+	sudo rm -rf ${TARGET}
+	mv musl-cross ${TARGET}
+	sudo chown -R root:0 ${TARGET}
+
+	if [[ $host_name =~ win-* ]]; then
+		local name="${host_name}_${TARGET}.7z"
+		echo -e "\nCreating \"${name}\" ...\n"
+		7z a -mx9 "../${name}" "${TARGET}"
+	else
+		local name="${host_name}_${TARGET}.tar.xz"
+		echo -e "\nCreating \"${name}\" ...\n"
+		tar -cJvf "../${name}" "${TARGET}"
+	fi
+	local hash="$(sha256sum "../${name}" | awk '{ print $1 }')"
+	printf '%s *%s\n' "$hash" "$name" > "../${name}.sha256"
+	popd
+	sudo rm -rf build
+}
+
+
 HOST=$1
 TARGET=$2
 
@@ -87,6 +217,8 @@ if [ "$HOST" == "$TARGET" ]; then
 	exit 1
 fi
 
+install_packages
+
 source_dir=$CTNG_SOURCE_DIR
 if [ -z "$source_dir" ]; then
 	source_dir="source-tarballs"
@@ -107,7 +239,8 @@ if [ ! -f "${HOST}.tar.xz" ]; then
 			url="${GH_URL_GNU}/gnu-cross/releases/download/${GH_VER_GNU}/${HOST}.tar.xz"
 			;;
 		*-musl)
-			url="${GH_URL_MUSL}/musl-cross/releases/download/${GH_VER_MUSL}/${HOST}.tar.xz"
+			name="linux-x64_${HOST}.tar.xz"
+			url="${GH_URL_MUSL}/musl-cross/releases/download/x64-${GH_VER_MUSL}/${name}"
 			;;
 		*-mingw32)
 			url="${GH_URL_MINGW}/mingw-cross/releases/download/${GH_VER_MINGW}/${HOST}.tar.xz"
@@ -122,45 +255,14 @@ fi
 
 set -e
 
-# Packages
-sudo apt-get update
-sudo apt-get install -y --no-install-recommends \
-  automake \
-  bison \
-  bzip2 \
-  ca-certificates \
-  cmake \
-  curl \
-  file \
-  flex \
-  g++ \
-  gawk \
-  gdb \
-  git \
-  gperf \
-  help2man \
-  libncurses-dev \
-  libssl-dev \
-  libtool-bin \
-  make \
-  patch \
-  pkg-config \
-  python3 \
-  rsync \
-  texinfo \
-  unzip \
-  wget \
-  xz-utils \
-  zip
-
 # Patch
 pushd builder
 git reset --hard HEAD
 git clean -fdx
 for i in ../targets/${TARGET}/*; do
-    if [[ $i == *.patch ]]; then
-        patch -Np1 -i $i
-    fi
+	if [[ $i == *.patch ]]; then
+		patch -Np1 -i $i
+	fi
 done
 popd
 
@@ -185,98 +287,6 @@ sudo tar -xf "$name" -C "$rootdir"
 # Use host toolchain
 export PATH=${rootdir}/${HOST}/bin:$PATH
 
-# Build
-sudo rm -rf build
-mkdir build
-pushd build
-cp "../targets/${TARGET}/config" .config
-cat << EOF >> .config
-CT_CONFIG_VERSION="4"
-CT_EXPERIMENTAL=y
-CT_LOCAL_TARBALLS_DIR="${source_dir}"
-CT_PREFIX_DIR="musl-cross"
-CT_CONNECT_TIMEOUT=120
-CT_DOWNLOAD_WGET_OPTIONS="--tries=20 -nc --progress=dot:binary"
-# CT_LOG_PROGRESS_BAR is not set
-# CT_SHOW_CT_VERSION is not set
-# CT_CROSS is not set
-CT_CANADIAN=y
-CT_TOOLCHAIN_TYPE="canadian"
-CT_HOST="${HOST}"
-CT_HOST_PREFIX=""
-CT_HOST_SUFFIX=""
-# CT_LINKER_MOLD is not set
-EOF
-/opt/ct-ng/bin/ct-ng olddefconfig
-echo -e "\n*** CT config ***\n"
-cat .config
-echo -e "\n******\n"
-
-/opt/ct-ng/bin/ct-ng build
-
-# Dynamic library for host
-find "musl-cross" -maxdepth 2 -exec chmod +w {} \;
-mkdir -p "musl-cross/lib"
-host_lib="${rootdir}/${HOST}/${HOST}/sysroot/lib"
-for f in "${host_lib}"/ld-*.so.* ; do
-	if [ -f "$f" ]; then
-		echo "Copying \"$f\" to \"musl-cross/lib/\""
-		cp "$f" "musl-cross/lib/"
-	fi
-done
-mkdir -p "musl-cross/bin"
-host_lib2="${rootdir}/${HOST}/${HOST}/sysroot/usr/${HOST}/bin"
-for f in "${host_lib2}"/libwinpthread-*.dll ; do
-	if [ -f "$f" ]; then
-		echo "Copying \"$f\" to \"musl-cross/bin/\""
-		cp "$f" "musl-cross/bin/"
-	fi
-done
-rm -f "musl-cross/build.log.bz2"
-rm -f "musl-cross/toolchain.cmake"
-rm -f "musl-cross/share/${TARGET}-ct-ng.config.bz2"
-find "musl-cross" -maxdepth 2 -exec chmod a-w {} \;
-
-# Fix invalid absolute symbolic link
-linkname="musl-cross/${TARGET}/sysroot/lib/ld-musl-powerpc.so.1"
-if [[ $TARGET == "powerpcle-unknown-linux-musl" && \
-	$(readlink "$linkname") == "/usr/lib/libc.so" ]]; then
-	pushd "$(dirname "$linkname")"
-	echo "Fixing invalid absolute link ${linkname}"
-	sudo ln -rsf "../usr/lib/libc.so" "$(basename "$linkname")"
-	popd
-fi
-
-host_name="$(sed 's/-unknown//g' <<< "$HOST")"
-case $host_name in
-	aarch64-linux-gnu)
-		host_name="linux-arm64" ;;
-	x86_64-linux-gnu)
-		host_name="linux-x64" ;;
-	x86_64-w64-mingw32)
-		host_name="win-x64" ;;
-esac
-if [[ $host_name =~ win-* ]]; then
-	rename_files_windows "musl-cross/${TARGET}"
-fi
-
-# Tarballs
-sudo rm -rf ${TARGET}
-mv musl-cross ${TARGET}
-sudo chown -R root:root ${TARGET}
-
-if [[ $host_name =~ win-* ]]; then
-	name="${host_name}_${TARGET}.7z"
-	echo -e "\nCreating \"${name}\" ...\n"
-	7z a -mx9 "../${name}" "${TARGET}"
-else
-	name="${host_name}_${TARGET}.tar.xz"
-	echo -e "\nCreating \"${name}\" ...\n"
-	tar -cJvf "../${name}" "${TARGET}"
-fi
-hash="$(sha256sum "../${name}" | awk '{ print $1 }')"
-printf '%s *%s\n' "$hash" "$name" > "../${name}.sha256"
-popd
-sudo rm -rf build
+build_target "$TARGET"
 
 echo -e "\nDone.\n"

@@ -21,7 +21,7 @@ CT_DoVerifyDigest()
 		echo "[WARN] Not verifying '${file}': digest missing"
 		return 0
 	fi
-	echo "Verifying ${alg^^} checksum for '${file}'"
+	echo "Verifying ${alg} checksum for '${file}'"
 	chksum=`"${alg}sum" "${path}"`
 	chksum="${chksum%%[[:space:]]*}"
 	while read a f c; do
