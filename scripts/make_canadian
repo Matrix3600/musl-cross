@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Currently, this script only runs on Linux x64.
+# This script only runs on Linux x64.
 
 set -o pipefail
 

@@ -1,4 +1,4 @@
-name: Release Windows x64
+name: Release Windows x64, built on Linux x64
 
 on:
   workflow_dispatch:
