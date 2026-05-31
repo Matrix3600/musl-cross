@@ -79,7 +79,6 @@ jobs:
       - name: Build
         run: |
           ls -l "$CTNG_SOURCE_DIR"
-          sudo rm -rf /opt/*
           ./scripts/make_canadian "${{ env.TOOLCHAIN_HOST }}" "${{ matrix.target }}"
       - name: Upload package
         uses: actions/upload-artifact@v7
