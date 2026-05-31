@@ -1,20 +1,18 @@
 #!/usr/bin/env bash
 
+# This script only runs on Linux.
+# It needs a case-sensitive file system (prerequisite for crosstool-ng).
+
 set -e -o pipefail
 
 
 function get_build_machine_type()
 {
-	if [ "$OS" == "Windows_NT" ]; then
-		local system="win"
-	else
-		local system="linux"
-		case $(uname -s) in
-			Linux) ;;
-			Darwin) system="macos" ;;
-			*) echo "uname -s: \"$(uname -s)\"" >&2 ;;
-		esac
-	fi
+	local system="linux"
+	case $(uname -s) in
+		Linux) ;;
+		*) echo "uname -s: \"$(uname -s)\"" >&2 ;;
+	esac
 	local arch=""
 	case $(uname -m) in
 		i?86) arch="x86" ;;
@@ -30,61 +28,31 @@ function get_build_machine_type()
 
 function install_packages()
 {
-	local system="$(get_build_machine_type)"
-	system=${system%%-*}
-
 	local packages="\
 		autoconf \
 		automake \
 		bison \
 		bzip2 \
 		flex \
+		g++ \
 		gawk \
 		gcc \
 		git \
 		gperf \
 		help2man \
+		libncurses-dev \
+		libtool-bin \
 		make \
+		patch \
 		python3 \
 		rsync \
 		texinfo \
 		unzip \
 		wget \
-	"
-	case $system in
-		linux)
-			packages="${packages} \
-				g++ \
-				libncurses-dev \
-				libtool-bin \
-				patch \
-				xz-utils \
-			" ;;
-		macos)
-			packages="${packages} \
-				bash \
-				binutils \
-				gnu-sed \
-				gnu-tar \
-				gettext \
-				libtool \
-				ncurses \
-				readline \
-				xz \
-				zstd \
-			" ;;
-	esac
-
-	case $system in
-		linux)
-			sudo apt-get update
-			sudo apt-get install -y --no-install-recommends $packages
-		;;
-		macos)
-			brew update
-			brew install --quiet $packages
-		;;
-	esac
+		xz-utils \
+		"
+	sudo apt-get update
+	sudo apt-get install -y --no-install-recommends $packages
 }
 
 
