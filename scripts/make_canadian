@@ -279,8 +279,8 @@ popd
 # Install host toolchain
 rootdir="/opt/x-tools"
 name="${HOST}.tar.xz"
-sudo rm -rf "${rootdir}/${HOST}"
 sudo mkdir -p "$rootdir"
+sudo rm -rf "${rootdir}/${HOST}"
 echo "Extracting \"${name}\" to \"${rootdir}\" ..."
 sudo tar -xf "$name" -C "$rootdir"
 
