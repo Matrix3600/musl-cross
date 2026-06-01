@@ -120,12 +120,12 @@ function build_target()
 		CT_HOST_SUFFIX=""
 		# CT_LINKER_MOLD is not set
 	EOF
-	/opt/ct-ng/bin/ct-ng olddefconfig
+	/opt/crosstool-ng/bin/ct-ng olddefconfig
 	echo -e "\n*** CT config ***\n"
 	cat .config
 	echo -e "\n******\n"
 
-	/opt/ct-ng/bin/ct-ng build
+	/opt/crosstool-ng/bin/ct-ng build
 
 	# Dynamic library for host
 	find "musl-cross" -maxdepth 2 -exec chmod +w {} \;
@@ -268,10 +268,10 @@ popd
 
 # crosstool-NG
 sudo mkdir -p /opt
-sudo rm -rf /opt/ct-ng
+sudo rm -rf /opt/crosstool-ng
 pushd builder
 ./bootstrap
-./configure --prefix=/opt/ct-ng
+./configure --prefix=/opt/crosstool-ng
 make -j`nproc`
 sudo make install
 popd
