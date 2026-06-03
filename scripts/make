@@ -138,6 +138,9 @@ for i in ../targets/${TARGET}/*; do
 		patch -Np1 -i $i
 	fi
 done
+if [ -d "../patches" ]; then
+	cp -rf "../patches/." "packages/"
+fi
 popd
 
 # crosstool-NG
