@@ -265,7 +265,7 @@ for i in ../targets/${TARGET}/*; do
 	fi
 done
 if [ -d "../patches" ]; then
-	cp -rf "../patches/." "packages/"
+	cp -rpv "../patches/." "packages/"
 fi
 popd
 

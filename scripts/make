@@ -82,7 +82,6 @@ function build_target()
 	/opt/crosstool-ng/bin/ct-ng build
 
 	find "musl-cross" -maxdepth 2 -exec chmod +w {} \;
-	mkdir -p "musl-cross/lib"
 	rm -f "musl-cross/build.log.bz2"
 	rm -f "musl-cross/toolchain.cmake"
 	rm -f "musl-cross/share/${TARGET}-ct-ng.config.bz2"
@@ -139,7 +138,7 @@ for i in ../targets/${TARGET}/*; do
 	fi
 done
 if [ -d "../patches" ]; then
-	cp -rf "../patches/." "packages/"
+	cp -rpv "../patches/." "packages/"
 fi
 popd
 

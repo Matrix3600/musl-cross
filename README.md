@@ -12,7 +12,7 @@ These [ready-to-use](https://github.com/Matrix3600/musl-cross/releases) toolchai
 ## Supported targets
 
 | Target                         | Kernel  | Binutils | GCC    | Musl   | Mold |
-|--------------------------------|---------|----------|--------|--------|------|
+|--------------------------------|:-------:|:--------:|:------:|:------:|:----:|
 | aarch64-unknown-linux-musl     | 5.4.302 | 2.46     | 16.1.0 | 1.2.6  | 2.41 |
 | arm-unknown-linux-musleabi     | 5.4.302 | 2.46     | 16.1.0 | 1.2.6  | 2.41 |
 | arm-unknown-linux-musleabihf   | 5.4.302 | 2.46     | 16.1.0 | 1.2.6  | 2.41 |
