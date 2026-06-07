@@ -8,7 +8,7 @@ GH_URL_GNU="https://github.com/cross-tools"
 GH_URL_MUSL="https://github.com/Matrix3600"
 GH_URL_MINGW="https://github.com/cross-tools"
 GH_VER_GNU=20260515
-GH_VER_MUSL=20260528
+GH_VER_MUSL=20260603
 GH_VER_MINGW=20260515
 
 
@@ -232,24 +232,30 @@ fi
 source_dir=$src_dir
 
 # Get host toolchain
-if [ ! -f "${HOST}.tar.xz" ]; then
+host_toolchain_tarname="linux-x64_${HOST}.tar.xz"
+name=$host_toolchain_tarname
+if [ ! -f "$host_toolchain_tarname" ]; then
 	url=""
 	case ${HOST} in
 		*-gnu)
-			url="${GH_URL_GNU}/gnu-cross/releases/download/${GH_VER_GNU}/${HOST}.tar.xz"
+			name="${HOST}.tar.xz"
+			url="${GH_URL_GNU}/gnu-cross/releases/download/${GH_VER_GNU}/${name}"
 			;;
 		*-musl)
-			name="linux-x64_${HOST}.tar.xz"
 			url="${GH_URL_MUSL}/musl-cross/releases/download/x64-${GH_VER_MUSL}/${name}"
 			;;
 		*-mingw32)
-			url="${GH_URL_MINGW}/mingw-cross/releases/download/${GH_VER_MINGW}/${HOST}.tar.xz"
+			name="${HOST}.tar.xz"
+			url="${GH_URL_MINGW}/mingw-cross/releases/download/${GH_VER_MINGW}/${name}"
 			;;
 	esac
 	wget -nv -nc -T 120 --tries=20 "$url"
 	if [ $? != 0 ]; then
 		echo "[ERROR] Host not supported (${HOST})."
 		exit 1
+	fi
+	if [ "$name" != "$host_toolchain_tarname" ]; then
+		mv "$name" "$host_toolchain_tarname"
 	fi
 fi
 
@@ -281,7 +287,7 @@ popd
 
 # Install host toolchain
 rootdir="/opt/x-tools"
-name="${HOST}.tar.xz"
+name=$host_toolchain_tarname
 sudo mkdir -p "$rootdir"
 sudo rm -rf "${rootdir}/${HOST}"
 echo "Extracting \"${name}\" to \"${rootdir}\" ..."
