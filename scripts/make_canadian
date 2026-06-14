@@ -2,7 +2,7 @@
 
 # This script only runs on Linux x64.
 
-set -o pipefail
+set -e -o pipefail
 
 GH_URL_GNU="https://github.com/cross-tools"
 GH_URL_MUSL="https://github.com/Matrix3600"
@@ -68,8 +68,7 @@ function rename_files_windows()
 
 function install_packages()
 {
-	sudo apt-get update
-	sudo apt-get install -y --no-install-recommends \
+	local packages="\
 		7zip \
 		autoconf \
 		automake \
@@ -91,17 +90,107 @@ function install_packages()
 		texinfo \
 		unzip \
 		wget \
-		xz-utils
+		xz-utils \
+	"
+	sudo apt-get update
+	sudo apt-get install -y --no-install-recommends $packages
+}
+
+
+function get_host_toolchain()
+{
+	local HOST="$1"
+
+	local host_toolchain_tarname="linux-x64_${HOST}.tar.xz"
+	local name="$host_toolchain_tarname"
+	if [ ! -f "$host_toolchain_tarname" ]; then
+		local url=""
+		case ${HOST} in
+			*-gnu)
+				name="${HOST}.tar.xz"
+				url="${GH_URL_GNU}/gnu-cross/releases/download/${GH_VER_GNU}/${name}"
+				;;
+			*-musl)
+				url="${GH_URL_MUSL}/musl-cross/releases/download/x64-${GH_VER_MUSL}/${name}"
+				;;
+			*-mingw32)
+				name="${HOST}.tar.xz"
+				url="${GH_URL_MINGW}/mingw-cross/releases/download/${GH_VER_MINGW}/${name}"
+				;;
+		esac
+		if ! wget -nv -nc -T 120 --tries=20 "$url"; then
+			echo "[ERROR] Host not supported (${HOST})."
+			return 1
+		fi
+		if [ "$name" != "$host_toolchain_tarname" ]; then
+			mv "$name" "$host_toolchain_tarname"
+		fi
+	fi
+}
+
+
+function build_crosstool_ng()
+{
+	sudo rm -rf crosstool-ng
+	mkdir crosstool-ng
+	local install_dir="$(pwd)/crosstool-ng"
+
+	pushd builder
+
+	# Patch
+	git clean -fdx
+	git reset --hard HEAD
+
+	if [ -d "../patches/patch" ]; then
+		find "../patches/patch" -type f -name "*.patch" -print0 | sort -z | \
+			while IFS= read -r -d '' file; do
+				echo "*** ${file#../patches/patch/}"
+				patch -Np1 -i "$file"
+			done
+	fi
+	if [ -d "../patches/add" ]; then
+		cp -rpv "../patches/add/." "packages/"
+	fi
+
+	./bootstrap
+	./configure --prefix="${install_dir}"
+	make -j$(nproc)
+	make install
+	popd
+	sudo chown -R root:0 crosstool-ng
+
+	local name="crosstool-ng.tar.xz"
+	echo -e "\nCreating \"${name}\" ...\n"
+	tar -cJvf "$name" crosstool-ng
+	sudo rm -rf crosstool-ng
 }
 
 
 function build_target()
 {
-	local TARGET="$1"
+	local HOST="$1"
+	local TARGET="$2"
+
+	local src_dir="$CTNG_SOURCE_DIR"
+	if [ -z "$src_dir" ]; then
+		src_dir="source-tarballs"
+	fi
+	set +e
+	local source_dir="$(mkdir -p -- "$src_dir" &>/dev/null && \
+		cd -- "$src_dir" &>/dev/null && pwd)"
+	set -e
+	if [ -z "$source_dir" ]; then
+		echo "[ERROR] Source directory invalid (${src_dir})."
+		return 1
+	fi
+
+	sudo rm -rf crosstool-ng
+	tar -xf "crosstool-ng.tar.xz"
 
 	sudo rm -rf build
 	mkdir build
 	pushd build
+
 	cp "../targets/${TARGET}/config" .config
 	cat <<- EOF >> .config
 		CT_CONFIG_VERSION="4"
@@ -120,17 +209,23 @@ function build_target()
 		CT_HOST_SUFFIX=""
 		# CT_LINKER_MOLD is not set
 	EOF
-	/opt/crosstool-ng/bin/ct-ng olddefconfig
+	../crosstool-ng/bin/ct-ng olddefconfig
 	echo -e "\n*** CT config ***\n"
 	cat .config
 	echo -e "\n******\n"
 
-	/opt/crosstool-ng/bin/ct-ng build
+	# Install the host toolchain
+	tar -xf "../linux-x64_${HOST}.tar.xz"
+
+	(
+		export PATH="$(pwd)/${HOST}/bin:$PATH"
+		../crosstool-ng/bin/ct-ng build
+	)
 
 	# Dynamic library for host
 	find "musl-cross" -maxdepth 2 -exec chmod +w {} \;
 	mkdir -p "musl-cross/lib"
-	local host_lib="${rootdir}/${HOST}/${HOST}/sysroot/lib"
+	local host_lib="${HOST}/${HOST}/sysroot/lib"
 	for f in "${host_lib}"/ld-*.so.* ; do
 		if [ -f "$f" ]; then
 			echo "Copying \"$f\" to \"musl-cross/lib/\""
@@ -138,7 +233,7 @@ function build_target()
 		fi
 	done
 	mkdir -p "musl-cross/bin"
-	local host_lib2="${rootdir}/${HOST}/${HOST}/sysroot/usr/${HOST}/bin"
+	local host_lib2="${HOST}/${HOST}/sysroot/usr/${HOST}/bin"
 	for f in "${host_lib2}"/libwinpthread-*.dll ; do
 		if [ -f "$f" ]; then
 			echo "Copying \"$f\" to \"musl-cross/bin/\""
@@ -191,13 +286,22 @@ function build_target()
 	printf '%s *%s\n' "$hash" "$name" > "../${name}.sha256"
 	popd
 	sudo rm -rf build
+	sudo rm -rf crosstool-ng
+
+	echo -e "\nThe complete toolchain is in"
+	echo -e "${name} .\n"
 }
 
 
-HOST=$1
-TARGET=$2
+if [ "$#" -eq 1 ]; then
+	HOST=""
+	TARGET=$1
+else
+	HOST=$1
+	TARGET=$2
+fi
 
-if [ -z "$HOST" ]; then
+if [[ -z $HOST && $TARGET != "crosstool-ng" ]]; then
 	echo "[ERROR] Host is missing."
 	exit 1
 fi
@@ -207,7 +311,7 @@ if [ -z "$TARGET" ]; then
 	exit 1
 fi
 
-if [ ! -f "targets/${TARGET}/config" ]; then
+if [[ $TARGET != "crosstool-ng" && ! -f "targets/${TARGET}/config" ]]; then
 	echo "[ERROR] Target not supported (${TARGET})."
 	exit 1
 fi
@@ -219,83 +323,16 @@ fi
 
 install_packages
 
-source_dir=$CTNG_SOURCE_DIR
-if [ -z "$source_dir" ]; then
-	source_dir="source-tarballs"
-fi
-src_dir=$(mkdir -p -- "$source_dir" &>/dev/null && \
-	cd -- "$source_dir" &>/dev/null && pwd)
-if [ -z "$src_dir" ]; then
-	echo "[ERROR] Source directory invalid (${source_dir})."
-	exit 1
-fi
-source_dir=$src_dir
-
-# Get host toolchain
-host_toolchain_tarname="linux-x64_${HOST}.tar.xz"
-name=$host_toolchain_tarname
-if [ ! -f "$host_toolchain_tarname" ]; then
-	url=""
-	case ${HOST} in
-		*-gnu)
-			name="${HOST}.tar.xz"
-			url="${GH_URL_GNU}/gnu-cross/releases/download/${GH_VER_GNU}/${name}"
-			;;
-		*-musl)
-			url="${GH_URL_MUSL}/musl-cross/releases/download/x64-${GH_VER_MUSL}/${name}"
-			;;
-		*-mingw32)
-			name="${HOST}.tar.xz"
-			url="${GH_URL_MINGW}/mingw-cross/releases/download/${GH_VER_MINGW}/${name}"
-			;;
-	esac
-	wget -nv -nc -T 120 --tries=20 "$url"
-	if [ $? != 0 ]; then
-		echo "[ERROR] Host not supported (${HOST})."
-		exit 1
-	fi
-	if [ "$name" != "$host_toolchain_tarname" ]; then
-		mv "$name" "$host_toolchain_tarname"
-	fi
+if [ "$TARGET" != "crosstool-ng" ]; then
+	get_host_toolchain "$HOST"
 fi
 
-set -e
-
-# Patch
-pushd builder
-git reset --hard HEAD
-git clean -fdx
-for i in ../targets/${TARGET}/*; do
-	if [[ $i == *.patch ]]; then
-		patch -Np1 -i $i
-	fi
-done
-if [ -d "../patches" ]; then
-	cp -rpv "../patches/." "packages/"
+if [ ! -f "crosstool-ng.tar.xz" ]; then
+	build_crosstool_ng
 fi
-popd
 
-# crosstool-NG
-sudo mkdir -p /opt
-sudo rm -rf /opt/crosstool-ng
-pushd builder
-./bootstrap
-./configure --prefix=/opt/crosstool-ng
-make -j`nproc`
-sudo make install
-popd
-
-# Install host toolchain
-rootdir="/opt/x-tools"
-name=$host_toolchain_tarname
-sudo mkdir -p "$rootdir"
-sudo rm -rf "${rootdir}/${HOST}"
-echo "Extracting \"${name}\" to \"${rootdir}\" ..."
-sudo tar -xf "$name" -C "$rootdir"
-
-# Use host toolchain
-export PATH=${rootdir}/${HOST}/bin:$PATH
-
-build_target "$TARGET"
+if [ "$TARGET" != "crosstool-ng" ]; then
+	build_target "$HOST" "$TARGET"
+fi
 
 echo -e "\nDone.\n"

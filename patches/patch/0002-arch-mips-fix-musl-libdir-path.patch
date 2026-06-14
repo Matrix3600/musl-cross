@@ -11,7 +11,7 @@ diff --git a/scripts/build/arch/mips.sh b/scripts/build/arch/mips.sh
 index acb88511..d95b37ff 100644
 --- a/scripts/build/arch/mips.sh
 +++ b/scripts/build/arch/mips.sh
-@@ -98,4 +98,14 @@ CT_DoArchMUSLPostInstall() {
+@@ -102,4 +102,14 @@ CT_DoArchMUSLPostInstall() {
      if [ ! -r "${CT_HEADERS_DIR}/sgidefs.h" ]; then
          echo "#include <asm/sgidefs.h> // Redirected by ct-ng" > "${CT_HEADERS_DIR}/sgidefs.h"
      fi
