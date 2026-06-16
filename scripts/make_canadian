@@ -6,10 +6,10 @@ set -e -o pipefail
 
 GH_URL_GNU="https://github.com/cross-tools"
 GH_URL_MUSL="https://github.com/Matrix3600"
-GH_URL_MINGW="https://github.com/cross-tools"
+GH_URL_MINGW="https://github.com/Matrix3600"
 GH_VER_GNU=20260515
-GH_VER_MUSL=20260603
-GH_VER_MINGW=20260515
+GH_VER_MUSL=20260616
+GH_VER_MINGW=20260616
 
 
 #
@@ -114,8 +114,7 @@ function get_host_toolchain()
 				url="${GH_URL_MUSL}/musl-cross/releases/download/x64-${GH_VER_MUSL}/${name}"
 				;;
 			*-mingw32)
-				name="${HOST}.tar.xz"
-				url="${GH_URL_MINGW}/mingw-cross/releases/download/${GH_VER_MINGW}/${name}"
+				url="${GH_URL_MINGW}/mingw-cross/releases/download/x64-${GH_VER_MINGW}/${name}"
 				;;
 		esac
 		if ! wget -nv -nc -T 120 --tries=20 "$url"; then
