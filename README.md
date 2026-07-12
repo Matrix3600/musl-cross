@@ -8,6 +8,7 @@ These [ready-to-use](https://github.com/Matrix3600/musl-cross/releases) toolchai
 - Linux x86-64
 - Linux ARM64
 - Windows x86-64
+- macOS ARM64 (Apple Silicon)
 
 ## Supported targets
 
@@ -80,6 +81,7 @@ The host architecture (on which the toolchains run) depends on the beginning of 
 - "x64-" for Linux x86-64
 - "arm64-" for Linux ARM64
 - "win-x64-" for Windows x86-64
+- "macos-arm64-" for macOS ARM64
 
 Otherwise you can also publish a release directly.
 

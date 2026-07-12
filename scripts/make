@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# This script only runs on Linux.
-# It requires a case-sensitive file system (prerequisite for crosstool-ng).
+# This script requires a case-sensitive file system
+# (prerequisite for crosstool-ng).
 
 set -e -o pipefail
 
@@ -10,31 +10,65 @@ set -e -o pipefail
 
 function install_packages()
 {
+	local system="$(get_build_machine_type)"
+	system=${system%%-*}
+
 	local packages="\
 		autoconf \
 		automake \
 		bison \
 		bzip2 \
 		flex \
-		g++ \
 		gawk \
 		gcc \
 		git \
 		gperf \
 		help2man \
-		libncurses-dev \
-		libtool-bin \
 		make \
-		patch \
 		python3 \
 		rsync \
 		texinfo \
 		unzip \
 		wget \
-		xz-utils \
 	"
-	sudo apt-get update
-	sudo apt-get install -y --no-install-recommends $packages
+	case $system in
+		linux)
+			packages="${packages} \
+				g++ \
+				libncurses-dev \
+				libtool-bin \
+				patch \
+				xz-utils \
+			" ;;
+		macos)
+			packages="${packages} \
+				bash \
+				binutils \
+				gnu-sed \
+				gnu-tar \
+				gettext \
+				libelf \
+				libtool \
+				ncurses \
+				readline \
+				xz \
+				zstd \
+			" ;;
+	esac
+
+	case $system in
+		linux)
+			sudo apt-get update
+			sudo apt-get install -y --no-install-recommends $packages
+			;;
+		macos)
+			brew update
+			brew install --quiet $packages
+
+			local brew_prefix="$(brew --prefix)"
+			export PATH="${PATH}:${brew_prefix}/opt/binutils/bin"
+			;;
+	esac
 }
 
 
@@ -55,12 +89,31 @@ function build_target()
 		return 1
 	fi
 
+	local SCRIPTS="$(pwd)/scripts"
+
 	sudo rm -rf crosstool-ng
 	tar -xf "crosstool-ng.tar.xz"
 
 	sudo rm -rf build
 	mkdir build
 	pushd build
+
+	local system
+	system="$(get_build_machine_type)"
+	system=${system%%-*}
+	if [ "$system" == "macos" ]; then
+		local brew_prefix="$(brew --prefix)"
+		PATH="${brew_prefix}/opt/bison/bin:${PATH}"
+		PATH="${brew_prefix}/opt/libtool/libexec/gnubin:${PATH}"
+		PATH="${brew_prefix}/opt/gnu-sed/libexec/gnubin:${PATH}"
+		export PATH
+
+		# On macOS, some headers required for the kernel headers installation are
+		# missing; we have to provide them.
+		HOSTCFLAGS="-I${brew_prefix}/opt/libelf/include"
+		HOSTCFLAGS+=" -I${SCRIPTS}/tools/headers"
+		export HOSTCFLAGS
+	fi
 
 	cp "../targets/${TARGET}/config" .config
 	cat <<- EOF >> .config
@@ -73,6 +126,11 @@ function build_target()
 		# CT_LOG_PROGRESS_BAR is not set
 		# CT_SHOW_CT_VERSION is not set
 	EOF
+	if [ "$system" != "linux" ]; then
+		cat <<- EOF >> .config
+			# CT_LINKER_MOLD is not set
+		EOF
+	fi
 	../crosstool-ng/bin/ct-ng olddefconfig
 	echo -e "\n*** CT config ***\n"
 	cat .config

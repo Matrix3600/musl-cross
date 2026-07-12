@@ -78,9 +78,22 @@ function trim() {
 
 function install_packages()
 {
+	local system
+	system="$(get_build_machine_type)"
+	system=${system%%-*}
+
 	local packages="wget"
-	sudo apt-get update
-	sudo apt-get install -y --no-install-recommends $packages
+	case $system in
+		linux)
+			sudo apt-get update
+			sudo apt-get install -y --no-install-recommends $packages
+		;;
+		macos)
+			packages="${packages} bash"
+			brew update
+			brew install --quiet $packages
+		;;
+	esac
 }
 
 
