@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-# This script only runs on Linux x64 or ARM64
-# (only Linux x64 for *-gnu hosts).
+# This script only runs on Linux x64 or ARM64.
 
 set -e -o pipefail
 
@@ -100,29 +99,19 @@ function get_host_toolchain()
 	local build
 	build="$(get_build_machine_type)"
 	case $build in
-		linux-x64) ;;
-		linux-arm64)
-			case $HOST in
-				*-gnu)
-					echo "[ERROR] Only Linux x64 build machine is supported for host ${HOST}." >&2
-					return 1
-					;;
-			esac
-			;;
+		linux-x64|linux-arm64) ;;
 		*)
 			echo "[ERROR] Build machine not supported (${build})." >&2
 			return 1
 			;;
 	esac
 	local arch="${build##*-}"
-	local host_toolchain_tarname="${build}_${HOST}.tar.xz"
-	local name="$host_toolchain_tarname"
-	if [ ! -f "$host_toolchain_tarname" ]; then
+	local name="${build}_${HOST}.tar.xz"
+	if [ ! -f "$name" ]; then
 		local url=""
 		case $HOST in
 			*-gnu)
-				name="${HOST}.tar.xz"
-				url="${CROSS_GNU_URL}/gnu-cross/releases/download/${CROSS_GNU_VER}/${name}"
+				url="${CROSS_GNU_URL}/gnu-cross/releases/download/${arch}-${CROSS_GNU_VER}/${name}"
 				;;
 			*-musl)
 				url="${CROSS_MUSL_URL}/musl-cross/releases/download/${arch}-${CROSS_MUSL_VER}/${name}"
@@ -134,9 +123,6 @@ function get_host_toolchain()
 		if ! wget -nv -nc -T 120 --tries=20 "$url"; then
 			echo "[ERROR] Host not supported (${HOST})." >&2
 			return 1
-		fi
-		if [ "$name" != "$host_toolchain_tarname" ]; then
-			mv "$name" "$host_toolchain_tarname"
 		fi
 	fi
 }
