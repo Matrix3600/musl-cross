@@ -66,7 +66,7 @@ jobs:
     runs-on: ubuntu-26.04-arm
     needs: [pre-download, build-crosstool-ng]
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         target:
           - aarch64-unknown-linux-musl
@@ -87,10 +87,6 @@ jobs:
           - mips64-unknown-linux-musl
           - mips64el-unknown-linux-musl
           - or1k-unknown-linux-musl
-          - powerpc-unknown-linux-musl
-          - powerpcle-unknown-linux-musl
-          - powerpc64-unknown-linux-musl
-          - powerpc64le-unknown-linux-musl
           - riscv32-unknown-linux-musl
           - riscv64-unknown-linux-musl
           - s390x-ibm-linux-musl
