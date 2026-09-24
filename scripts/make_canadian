@@ -193,7 +193,9 @@ function build_target()
 	mkdir -p "musl-cross/lib"
 	local host_lib="${HOST}/${HOST}/sysroot/lib"
 	for f in "${host_lib}"/ld-*.so.* ; do
-		if [ -f "$f" ]; then
+		local f_name
+		f_name="$(basename "$f")"
+		if [[ -f $f && $f_name != "ld-linux-x86-64.so.2" ]]; then
 			echo "Copying \"$f\" to \"musl-cross/lib/\""
 			cp "$f" "musl-cross/lib/"
 		fi
@@ -221,6 +223,7 @@ function build_target()
 
 	local host_type
 	host_type="$(get_host_type "$HOST")"
+
 	if [[ $host_type =~ win-* ]]; then
 		rename_files_windows "musl-cross/${TARGET}"
 	fi
