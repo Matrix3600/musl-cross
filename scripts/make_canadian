@@ -94,6 +94,8 @@ function install_packages()
 
 function get_host_toolchain()
 {
+	# Output: HOST_TOOLCHAIN_NAME
+
 	local HOST="$1"
 
 	local build
@@ -125,6 +127,10 @@ function get_host_toolchain()
 			return 1
 		fi
 	fi
+
+	echo "Host toolchain: ${name}"
+
+	HOST_TOOLCHAIN_NAME=$name
 }
 
 
@@ -177,9 +183,7 @@ function build_target()
 	echo -e "\n******\n"
 
 	# Install the host toolchain
-	local build
-	build="$(get_build_machine_type)"
-	tar -xf "../${build}_${HOST}.tar.xz"
+	tar -xf "../${HOST_TOOLCHAIN_NAME}"
 
 	(
 		export PATH="$(pwd)/${HOST}/bin:$PATH"
@@ -193,7 +197,9 @@ function build_target()
 	mkdir -p "musl-cross/lib"
 	local host_lib="${HOST}/${HOST}/sysroot/lib"
 	for f in "${host_lib}"/ld-*.so.* ; do
-		if [ -f "$f" ]; then
+		local f_name
+		f_name="$(basename "$f")"
+		if [[ -f $f && $f_name != "ld-linux-x86-64.so.2" ]]; then
 			echo "Copying \"$f\" to \"musl-cross/lib/\""
 			cp "$f" "musl-cross/lib/"
 		fi
@@ -221,6 +227,7 @@ function build_target()
 
 	local host_type
 	host_type="$(get_host_type "$HOST")"
+
 	if [[ $host_type =~ win-* ]]; then
 		rename_files_windows "musl-cross/${TARGET}"
 	fi
@@ -282,6 +289,8 @@ if [ "$HOST" == "$TARGET" ]; then
 	echo "[ERROR] Target and host are identical." >&2
 	exit 1
 fi
+
+HOST_TOOLCHAIN_NAME=""
 
 install_packages
 
