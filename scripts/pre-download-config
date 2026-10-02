@@ -6,7 +6,7 @@
 # If <version> if empty or non-numeric, the latest version of the package
 # supported by crosstool-NG is used.
 #
-gettext-x.tar.xz | https://ftp.gnu.org/gnu/gettext
 gmp-x.tar.xz | https://ftp.gnu.org/gnu/gmp
+isl-x.tar.xz | https://libisl.sourceforge.io
 linux-6.1.183.tar.xz | https://www.kernel.org/pub/linux/kernel/v6.x
 musl-x.tar.gz | https://musl.libc.org/releases https://sources.buildroot.net/musl
