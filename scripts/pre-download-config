@@ -8,5 +8,5 @@
 #
 gmp-x.tar.xz | https://ftp.gnu.org/gnu/gmp
 isl-x.tar.xz | https://libisl.sourceforge.io
-linux-6.1.183.tar.xz | https://www.kernel.org/pub/linux/kernel/v6.x
+linux-6.1.189.tar.xz | https://www.kernel.org/pub/linux/kernel/v6.x
 musl-x.tar.gz | https://musl.libc.org/releases https://sources.buildroot.net/musl
