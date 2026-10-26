@@ -3,10 +3,10 @@
 #
 # <package>-<version>.tar.* | <url> ...
 #
-# If <version> contains a BASH pattern, the latest matching version of the
+# If <version> contains a Bash pattern, the latest matching version of the
 # package supported by crosstool-NG is used.
 #
-gmp-*.tar.xz | https://ftp.gnu.org/gnu/gmp
+gmp-*.tar.xz | https://ftpmirror.gnu.org/gmp
 isl-*.tar.xz | https://libisl.sourceforge.io
-linux-6.1.*.tar.xz | https://www.kernel.org/pub/linux/kernel/v6.x
+linux-6.1.*.tar.xz | https://cdn.kernel.org/pub/linux/kernel/v6.x
 musl-*.tar.gz | https://musl.libc.org/releases https://sources.buildroot.net/musl
