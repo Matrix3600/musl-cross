@@ -1,0 +1,34 @@
+diff --git a/packages/linux/6.1.189/chksum b/packages/linux/6.1.189/chksum
+deleted file mode 100644
+index 57fff673..00000000
+--- a/packages/linux/6.1.189/chksum
++++ /dev/null
+@@ -1,8 +0,0 @@
+-md5 linux-6.1.189.tar.xz b06cf0691e83df0a0ea81d3ff18c0a3b
+-sha1 linux-6.1.189.tar.xz 62ad7d13ff75fff6c849136ce4a1da9283bac83e
+-sha256 linux-6.1.189.tar.xz 3ec834a2fefc9a08aac62f993525d7acd10163db6f01d63b4549cbff3f5c9439
+-sha512 linux-6.1.189.tar.xz adb8ac83f172802271f98510741681eca414ba883843843950bd8688fd4cf861e2d7fbaed0ca523b5b51ba8d435f13abfac7d835b37d8bcc304c8c3aa2f9db65
+-md5 linux-6.1.189.tar.gz 8a755e71955bfd31d8395aa8042fd03e
+-sha1 linux-6.1.189.tar.gz a92863f48733614c4c95dbe24783a6556461cc96
+-sha256 linux-6.1.189.tar.gz 7385d341c80b79d1da34658bb21652d552ba25ac1d65f453bb48c39d9536b87c
+-sha512 linux-6.1.189.tar.gz d5b6e1c291b73c8cae563eb4c93b11d055b3be2b158f2ebbaa331f89cd12f0f965c83aefff5816b74a14038c110f2d5b5294ef7a110ddb888b0bdb5648189a30
+diff --git a/packages/linux/6.1.190/chksum b/packages/linux/6.1.190/chksum
+new file mode 100755
+index 00000000..e926b7c6
+--- /dev/null
++++ b/packages/linux/6.1.190/chksum
+@@ -0,0 +1,8 @@
++md5 linux-6.1.190.tar.xz 521cef9e51f63a0a68452ef9f31bffe9
++sha1 linux-6.1.190.tar.xz 22d70efa9ded26226f287420cac6c7962cb6e710
++sha256 linux-6.1.190.tar.xz 8aa50daca0412a3d0a61a87af3744f39773d40b3132635fb7bc9be652cdb7b0c
++sha512 linux-6.1.190.tar.xz ce276b93bb2c37334d6bbb9ea6d58eb3f7b84fe79bbea8c6cc6527cc07378df4d6c7785f6b7c0178455f97f8423ba6d70a7c8b48fada05dcc8d4ae7340d25489
++md5 linux-6.1.190.tar.gz 31f2f7940c767d01439fbc2beeaca5af
++sha1 linux-6.1.190.tar.gz 8c373f8289fb4959b4d0fa855ae671a8bcabf8ab
++sha256 linux-6.1.190.tar.gz c10b79cfd74a7799e4b3e5c50c37b6e400efe3746cd9ceefa7a90ab99469a936
++sha512 linux-6.1.190.tar.gz 15d53c329616a4f350927f848f06d512c64e0641fe6d389271f801812c9714fc5b3ec53403b099dd2442849fb7879b879584d1f5060bf7b7ab00de9584b8f168
+diff --git a/packages/linux/6.1.189/version.desc b/packages/linux/6.1.190/version.desc
+old mode 100644
+new mode 100755
+similarity index 100%
+rename from packages/linux/6.1.189/version.desc
+rename to packages/linux/6.1.190/version.desc
